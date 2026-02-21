@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { Moon, Sun, Settings, Search, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Switch } from '~/components/ui/switch'
 import { Separator } from '~/components/ui/separator'
+import { SettingsDialog } from '~/components/settings/SettingsDialog'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
 
@@ -12,6 +14,7 @@ interface HeaderProps {
 }
 
 export function Header({ onSearchClick, onToggleSidebar, isSidebarCollapsed }: HeaderProps) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { resolvedTheme, setTheme } = useThemeContext()
   const { state, updateSettings } = useWorkspace()
   const autoSave = state.settings.autoSave
@@ -97,10 +100,16 @@ export function Header({ onSearchClick, onToggleSidebar, isSidebarCollapsed }: H
           variant="ghost"
           size="icon"
           aria-label="Settings"
+          onClick={() => setIsSettingsOpen(true)}
         >
           <Settings className="h-4 w-4" />
         </Button>
       </div>
+
+      <SettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
     </header>
   )
 }

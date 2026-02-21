@@ -21,6 +21,20 @@ import {
 } from '../lib/filesystem';
 import { getSetting, saveSetting } from '../lib/storage';
 
+const MARKDOWN_EXTENSIONS = ['.md'];
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+
+function getFileType(path: string): OpenFile['fileType'] {
+  const lowerPath = path.toLowerCase();
+  if (MARKDOWN_EXTENSIONS.some((ext) => lowerPath.endsWith(ext))) {
+    return 'markdown';
+  }
+  if (IMAGE_EXTENSIONS.some((ext) => lowerPath.endsWith(ext))) {
+    return 'image';
+  }
+  return 'unknown';
+}
+
 // Action types
 type WorkspaceAction =
   | { type: 'SET_ROOT_HANDLE'; payload: FileSystemDirectoryHandle }
@@ -43,6 +57,7 @@ const initialState: WorkspaceState = {
   settings: {
     autoSave: false,
     theme: 'system',
+    maxOpenTabs: 0,
   },
   isLoading: false,
 };
@@ -63,6 +78,7 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
       };
 
     case 'OPEN_FILE': {
+      const now = Date.now();
       // Check if file is already open
       const existingFile = state.openFiles.find(f => f.path === action.payload.path);
       if (existingFile) {
@@ -70,13 +86,18 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
         return {
           ...state,
           activeFilePath: action.payload.path,
+          openFiles: state.openFiles.map(f =>
+            f.path === action.payload.path
+              ? { ...f, lastAccessedAt: now }
+              : f
+          ),
         };
       }
 
       // Add new file to open files
       return {
         ...state,
-        openFiles: [...state.openFiles, action.payload],
+        openFiles: [...state.openFiles, { ...action.payload, lastAccessedAt: now }],
         activeFilePath: action.payload.path,
       };
     }
@@ -113,6 +134,11 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
       return {
         ...state,
         activeFilePath: action.payload,
+        openFiles: state.openFiles.map(f =>
+          f.path === action.payload
+            ? { ...f, lastAccessedAt: Date.now() }
+            : f
+        ),
       };
 
     case 'UPDATE_CONTENT': {
@@ -199,12 +225,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       try {
         const autoSave = await getSetting<boolean>('autoSave');
         const theme = await getSetting<'light' | 'dark' | 'system'>('theme');
+        const maxOpenTabs = await getSetting<number>('maxOpenTabs');
         
         dispatch({
           type: 'UPDATE_SETTINGS',
           payload: {
             ...(autoSave !== undefined && { autoSave }),
             ...(theme !== undefined && { theme }),
+            ...(maxOpenTabs !== undefined && { maxOpenTabs }),
           },
         });
       } catch (error) {
@@ -272,6 +300,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Open a file (or switch to it if already open)
   const openFile = useCallback(async (path: string, handle: FileSystemFileHandle) => {
     try {
+      const now = Date.now();
       // Check if already open
       const existingFile = state.openFiles.find(f => f.path === path);
       if (existingFile) {
@@ -279,15 +308,40 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Read file content
-      const content = await readFile(handle);
-      const icon = readFileIcon(content);
+      // Enforce tab limit using LRU strategy (excluding active tab when possible)
+      if (state.settings.maxOpenTabs > 0 && state.openFiles.length >= state.settings.maxOpenTabs) {
+        const nonActiveFiles = state.openFiles.filter((f) => f.path !== state.activeFilePath);
+        const lruCandidate = (nonActiveFiles.length > 0 ? nonActiveFiles : state.openFiles)
+          .slice()
+          .sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)[0];
+
+        if (lruCandidate) {
+          if (lruCandidate.fileType === 'markdown' && lruCandidate.content !== lruCandidate.savedContent) {
+            await writeFile(lruCandidate.handle, lruCandidate.content);
+            dispatch({ type: 'MARK_SAVED', payload: lruCandidate.path });
+          }
+
+          dispatch({ type: 'CLOSE_FILE', payload: lruCandidate.path });
+          toast(`Closed tab to enforce max tab limit: ${lruCandidate.path}`);
+        }
+      }
+
+      const fileType = getFileType(path);
+      let content = '';
+      let icon: string | undefined;
+
+      if (fileType === 'markdown') {
+        content = await readFile(handle);
+        icon = readFileIcon(content);
+      }
 
       const openFile: OpenFile = {
         path,
         handle,
         content,
         savedContent: content, // Initially, saved = current
+        fileType,
+        lastAccessedAt: now,
         icon,
       };
 
@@ -299,7 +353,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  }, [state.openFiles]);
+  }, [state.activeFilePath, state.openFiles, state.settings.maxOpenTabs]);
 
   // Close a file with dirty check
   const closeFile = useCallback(async (path: string, force = false): Promise<boolean> => {
@@ -307,7 +361,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (!file) return true;
 
     // Check if dirty
-    const dirty = file.content !== file.savedContent;
+    const dirty = file.fileType === 'markdown' && file.content !== file.savedContent;
     if (dirty && !force) {
       // Prompt user
       const discard = window.confirm(
@@ -327,6 +381,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const file = state.openFiles.find(f => f.path === path);
     if (!file) {
       throw new Error(`File ${path} is not open`);
+    }
+
+    if (file.fileType !== 'markdown') {
+      return;
     }
 
     try {
@@ -472,6 +530,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const isDirty = useCallback((path: string): boolean => {
     const file = state.openFiles.find(f => f.path === path);
     if (!file) return false;
+    if (file.fileType !== 'markdown') return false;
     return file.content !== file.savedContent;
   }, [state.openFiles]);
 

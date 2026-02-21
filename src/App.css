@@ -1,6 +1,8 @@
 /* MDX Editor structural overrides */
 .mdxeditor-root-contenteditable {
-  overflow: auto;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .mdxeditor-toolbar {

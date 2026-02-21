@@ -75,9 +75,9 @@ export function useWorkspaceSearch() {
       const indexedPaths = new Set<string>();
 
       // Recursively collect all .md files
-      const collectFiles = async (nodes: typeof fileTree, parentPath = ''): Promise<void> => {
+      const collectFiles = async (nodes: typeof fileTree): Promise<void> => {
         for (const node of nodes) {
-          const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+          const fullPath = node.path;
           
           if (node.kind === 'file' && node.name.endsWith('.md')) {
             try {
@@ -100,7 +100,7 @@ export function useWorkspaceSearch() {
               console.error(`Failed to read file ${fullPath}:`, error);
             }
           } else if (node.kind === 'directory' && node.children) {
-            await collectFiles(node.children, fullPath);
+            await collectFiles(node.children);
           }
         }
       };

@@ -24,6 +24,8 @@ export async function testWorkspaceContext() {
       handle: {} as FileSystemFileHandle,
       content: 'Hello World',
       savedContent: 'Hello World',
+      fileType: 'markdown',
+      lastAccessedAt: Date.now(),
       icon: '📝',
     };
     console.assert(_mockOpenFile.path === 'test.md', 'OpenFile path should be set');
@@ -72,12 +74,16 @@ export async function testWorkspaceContext() {
       handle: {} as FileSystemFileHandle,
       content: 'Same content',
       savedContent: 'Same content',
+      fileType: 'markdown',
+      lastAccessedAt: Date.now(),
     };
     const dirtyFile: OpenFile = {
       path: 'dirty.md',
       handle: {} as FileSystemFileHandle,
       content: 'Modified content',
       savedContent: 'Original content',
+      fileType: 'markdown',
+      lastAccessedAt: Date.now(),
     };
     const isCleanDirty = cleanFile.content !== cleanFile.savedContent;
     const isDirtyDirty = dirtyFile.content !== dirtyFile.savedContent;

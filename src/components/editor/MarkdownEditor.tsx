@@ -3,7 +3,7 @@
  * Main WYSIWYG editor using @mdxeditor/editor with all plugins configured
  */
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef, type MouseEvent } from 'react'
 import {
   MDXEditor,
   headingsPlugin,
@@ -52,6 +52,7 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const { resolvedTheme } = useThemeContext()
   const { state, refreshTree, saveFile } = useWorkspace()
+  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   // Auto-save hook - saves content after 300ms of inactivity (Step 11)
   useAutoSave({
@@ -167,8 +168,51 @@ export function MarkdownEditor({
   // Apply dark theme class
   const editorClassName = resolvedTheme === 'dark' ? 'dark-theme dark-editor' : ''
 
+  const handleBackgroundMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+
+    // Keep normal behavior for editable/interactive elements.
+    if (
+      target.closest('[contenteditable="true"]') ||
+      target.closest('button, a, input, textarea, select, [role="button"]')
+    ) {
+      return
+    }
+
+    const container = editorContainerRef.current
+    if (!container) {
+      return
+    }
+
+    const editorRoot = container.querySelector('.mdxeditor')
+    if (!(editorRoot instanceof HTMLElement) || !editorRoot.contains(target)) {
+      return
+    }
+
+    const contentEditable = container.querySelector('[contenteditable="true"]')
+    if (contentEditable instanceof HTMLElement) {
+      event.preventDefault()
+      contentEditable.focus()
+
+      const selection = window.getSelection()
+      if (!selection) {
+        return
+      }
+
+      const range = document.createRange()
+      range.selectNodeContents(contentEditable)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+  }, [])
+
   return (
-    <div className="h-full w-full">
+    <div ref={editorContainerRef} className="h-full w-full" onMouseDown={handleBackgroundMouseDown}>
       <MDXEditor
         key={filePath} // Force re-mount on file switch
         markdown={content}

@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@plugin "@tailwindcss/typography";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -158,7 +160,9 @@
 
 /* MDX Editor structural overrides */
 .mdxeditor-root-contenteditable {
-  overflow: auto;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .mdxeditor-toolbar {

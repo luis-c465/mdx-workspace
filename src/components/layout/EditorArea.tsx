@@ -7,6 +7,7 @@
 import { useEffect } from 'react'
 import { TabBar } from './TabBar'
 import { MarkdownEditor } from '~/components/editor/MarkdownEditor'
+import { FilePreview } from '~/components/editor/FilePreview'
 import { WelcomeScreen } from '~/components/editor/WelcomeScreen'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
 import { toast } from 'sonner'
@@ -71,12 +72,16 @@ export function EditorArea() {
       {/* Render editor or welcome screen */}
       {activeFile ? (
         <div className="flex-1 overflow-hidden">
-          <MarkdownEditor
-            filePath={activeFile.path}
-            content={activeFile.content}
-            savedContent={activeFile.savedContent}
-            onChange={(content) => updateContent(activeFile.path, content)}
-          />
+          {activeFile.fileType === 'markdown' ? (
+            <MarkdownEditor
+              filePath={activeFile.path}
+              content={activeFile.content}
+              savedContent={activeFile.savedContent}
+              onChange={(content) => updateContent(activeFile.path, content)}
+            />
+          ) : (
+            <FilePreview path={activeFile.path} handle={activeFile.handle} />
+          )}
         </div>
       ) : (
         <WelcomeScreen />

@@ -92,6 +92,18 @@ function shouldSkip(name: string): boolean {
   return SKIP_PATTERNS.some(pattern => pattern(name));
 }
 
+async function readFrontmatterIconFromHandle(
+  fileHandle: FileSystemFileHandle
+): Promise<string | undefined> {
+  try {
+    const file = await fileHandle.getFile();
+    const frontmatterPrefix = await file.slice(0, 500).text();
+    return readFileIcon(frontmatterPrefix);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Build a file tree from a directory handle
  * Recursively reads directory entries and filters to allowed file types
@@ -127,11 +139,17 @@ export async function buildFileTree(
       } else if (entry.kind === 'file') {
         // Only include markdown and image files
         if (shouldIncludeFile(entry.name)) {
+          const fileHandle = entry as FileSystemFileHandle;
+          const icon = entry.name.toLowerCase().endsWith('.md')
+            ? await readFrontmatterIconFromHandle(fileHandle)
+            : undefined;
+
           nodes.push({
             name: entry.name,
             path,
             kind: 'file',
-            handle: entry as FileSystemFileHandle,
+            handle: fileHandle,
+            icon,
           });
         }
       }

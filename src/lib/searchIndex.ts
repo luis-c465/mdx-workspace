@@ -43,19 +43,10 @@ function getMiniSearchInstance(): MiniSearch<SearchDocument> {
  * Clears any existing index and rebuilds from scratch
  */
 export function buildIndex(files: SearchDocument[]): void {
+  // Recreate the index each time to avoid stale/duplicate entries
+  miniSearchInstance = null;
   const index = getMiniSearchInstance();
-  
-  // Remove all existing documents by discarding them one by one
-  if (index.documentCount > 0) {
-    // Get all document IDs and remove them
-    const allDocs = index.search('', { boost: {}, fuzzy: 0 });
-    allDocs.forEach(doc => {
-      if (index.has(doc.id)) {
-        index.discard(doc.id);
-      }
-    });
-  }
-  
+
   // Add all documents to the index
   if (files.length > 0) {
     index.addAll(files);
@@ -150,15 +141,7 @@ export function getIndexSize(): number {
  * Clear the entire index
  */
 export function clearIndex(): void {
-  if (miniSearchInstance && miniSearchInstance.documentCount > 0) {
-    // Get all documents and discard them
-    const allDocs = miniSearchInstance.search('', { boost: {}, fuzzy: 0 });
-    allDocs.forEach(doc => {
-      if (miniSearchInstance?.has(doc.id)) {
-        miniSearchInstance.discard(doc.id);
-      }
-    });
-  }
+  miniSearchInstance = null;
 }
 
 /**
