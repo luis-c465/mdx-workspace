@@ -441,6 +441,33 @@ export async function saveImage(
 }
 
 /**
+ * Resolve a markdown image source path (e.g. ./assets/image.png) to a browser-loadable blob URL
+ */
+export async function resolveImagePreviewSrc(
+  rootHandle: FileSystemDirectoryHandle,
+  imageSource: string
+): Promise<string> {
+  try {
+    const segments = imageSource
+      .split('/')
+      .filter(Boolean)
+      .filter(segment => segment !== '.');
+
+    if (segments.length === 0 || segments.includes('..')) {
+      throw new Error(`Invalid relative image path: ${imageSource}`);
+    }
+
+    const normalizedPath = segments.join('/');
+    const fileHandle = await getFileByPath(rootHandle, normalizedPath);
+    const file = await fileHandle.getFile();
+    return URL.createObjectURL(file);
+  } catch (error) {
+    console.error(`Failed to resolve image preview source: ${imageSource}`, error);
+    throw error;
+  }
+}
+
+/**
  * Get a file handle by navigating through a path
  * Path should be relative to the root handle, e.g., "folder/subfolder/file.md"
  */

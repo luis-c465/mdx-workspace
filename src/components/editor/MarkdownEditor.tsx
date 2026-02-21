@@ -3,7 +3,7 @@
  * Main WYSIWYG editor using @mdxeditor/editor with all plugins configured
  */
 
-import { useMemo, useCallback, useRef, type MouseEvent } from 'react'
+import { useMemo, useCallback, useRef, useEffect, type MouseEvent } from 'react'
 import {
   MDXEditor,
   headingsPlugin,
@@ -29,7 +29,7 @@ import { EditorToolbar } from './EditorToolbar'
 import { searchPlugin } from './search/searchPlugin'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
-import { saveImage } from '~/lib/filesystem'
+import { saveImage, resolveImagePreviewSrc } from '~/lib/filesystem'
 import { toast } from 'sonner'
 import { useAutoSave } from '~/hooks/useAutoSave'
 
@@ -53,6 +53,16 @@ export function MarkdownEditor({
   const { resolvedTheme } = useThemeContext()
   const { state, refreshTree, saveFile } = useWorkspace()
   const editorContainerRef = useRef<HTMLDivElement>(null)
+  const imagePreviewUrlCacheRef = useRef<Map<string, string>>(new Map())
+
+  useEffect(() => {
+    return () => {
+      for (const objectUrl of imagePreviewUrlCacheRef.current.values()) {
+        URL.revokeObjectURL(objectUrl)
+      }
+      imagePreviewUrlCacheRef.current.clear()
+    }
+  }, [filePath])
 
   // Auto-save hook - saves content after 300ms of inactivity (Step 11)
   useAutoSave({
@@ -98,6 +108,31 @@ export function MarkdownEditor({
     }
   }, [state.rootHandle, refreshTree])
 
+  const handleImagePreview = useCallback(async (imageSource: string): Promise<string> => {
+    if (!state.rootHandle) {
+      return imageSource
+    }
+
+    const isRelativePath = imageSource.startsWith('./') || imageSource.startsWith('../')
+    if (!isRelativePath) {
+      return imageSource
+    }
+
+    const cachedUrl = imagePreviewUrlCacheRef.current.get(imageSource)
+    if (cachedUrl) {
+      return cachedUrl
+    }
+
+    try {
+      const objectUrl = await resolveImagePreviewSrc(state.rootHandle, imageSource)
+      imagePreviewUrlCacheRef.current.set(imageSource, objectUrl)
+      return objectUrl
+    } catch (error) {
+      console.error('Failed to resolve image preview source:', error)
+      return imageSource
+    }
+  }, [state.rootHandle])
+
   // Configure all plugins
   const plugins = useMemo(
     () => [
@@ -114,6 +149,7 @@ export function MarkdownEditor({
       // Images - with workspace image upload handler
       imagePlugin({
         imageUploadHandler: handleImageUpload,
+        imagePreviewHandler: handleImagePreview,
       }),
 
       // Tables
@@ -162,7 +198,7 @@ export function MarkdownEditor({
       // Search & Replace plugin (Step 10)
       searchPlugin(),
     ],
-    [savedContent, handleImageUpload] // Re-create plugins when savedContent or handleImageUpload changes
+    [savedContent, handleImageUpload, handleImagePreview] // Re-create plugins when handlers or savedContent changes
   )
 
   // Apply dark theme class
