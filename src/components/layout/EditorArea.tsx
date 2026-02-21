@@ -51,8 +51,8 @@ export function EditorArea() {
     setActiveFile(path)
   }
 
-  const handleTabClose = (path: string) => {
-    closeFile(path)
+  const handleTabClose = (path: string, force = false) => {
+    closeFile(path, force)
   }
 
   // Get active file data

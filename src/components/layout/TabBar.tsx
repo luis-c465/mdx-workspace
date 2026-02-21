@@ -13,7 +13,7 @@ interface TabBarProps {
   tabs: Tab[]
   activeTabPath: string | null
   onTabClick: (path: string) => void
-  onTabClose: (path: string) => void
+  onTabClose: (path: string, force?: boolean) => void
 }
 
 export function TabBar({ tabs, activeTabPath, onTabClick, onTabClose }: TabBarProps) {
@@ -44,17 +44,27 @@ export function TabBar({ tabs, activeTabPath, onTabClick, onTabClose }: TabBarPr
             </span>
 
             {/* Dirty indicator or close button */}
-            <div className="shrink-0">
-              {tab.isDirty ? (
-                <div className="w-2 h-2 rounded-full bg-primary" />
-              ) : null}
+            {tab.isDirty ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  'h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity',
-                  tab.isDirty && 'opacity-0'
-                )}
+                className="group/dirty relative h-3 w-3 p-0 shrink-0 hover:bg-transparent"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onTabClose(tab.path, true)
+                }}
+                aria-label="Close tab and discard changes"
+              >
+                <span className="absolute inset-0 flex items-center justify-center transition-opacity group-hover/dirty:opacity-0">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                </span>
+                <X className="h-2.5 w-2.5 text-destructive opacity-0 transition-opacity group-hover/dirty:opacity-100" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 p-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation()
                   onTabClose(tab.path)
@@ -63,7 +73,7 @@ export function TabBar({ tabs, activeTabPath, onTabClick, onTabClose }: TabBarPr
               >
                 <X className="h-3 w-3" />
               </Button>
-            </div>
+            )}
           </div>
         ))}
       </div>
