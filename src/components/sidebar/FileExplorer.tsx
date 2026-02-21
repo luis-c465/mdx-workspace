@@ -3,7 +3,7 @@
  * Main file tree explorer with search, actions, and workspace management
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Separator } from '~/components/ui/separator';
@@ -16,6 +16,8 @@ import type { FileNode } from '~/types/filesystem';
 export function FileExplorer() {
   const { state, openWorkspace } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string | null>(state.activeFilePath);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
   const { rootHandle, fileTree, isLoading } = state;
 
@@ -49,6 +51,31 @@ export function FileExplorer() {
   };
 
   const filteredTree = filterTree(fileTree, searchQuery);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'F2') {
+        return;
+      }
+
+      const target = e.target as HTMLElement | null;
+      const isTypingTarget = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+
+      if (isTypingTarget || renamingPath || !selectedPath) {
+        return;
+      }
+
+      e.preventDefault();
+      setRenamingPath(selectedPath);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPath, renamingPath]);
 
   // If no workspace is open, show the open workspace button
   if (!rootHandle) {
@@ -115,6 +142,11 @@ export function FileExplorer() {
                   node={node} 
                   depth={0}
                   searchQuery={searchQuery}
+                  selectedPath={selectedPath}
+                  renamingPath={renamingPath}
+                  onSelectNode={setSelectedPath}
+                  onStartRename={setRenamingPath}
+                  onFinishRename={() => setRenamingPath(null)}
                 />
               ))}
             </div>

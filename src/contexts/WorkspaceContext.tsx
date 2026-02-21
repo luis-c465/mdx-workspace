@@ -16,8 +16,11 @@ import {
   createFile as fsCreateFile,
   createDirectory as fsCreateDirectory,
   deleteEntry as fsDeleteEntry,
+  renameFile as fsRenameFile,
+  renameDirectory as fsRenameDirectory,
   readFileIcon,
   getParentDirectoryHandle,
+  getFileByPath,
 } from '../lib/filesystem';
 import { getSetting, saveSetting } from '../lib/storage';
 
@@ -46,7 +49,8 @@ type WorkspaceAction =
   | { type: 'MARK_SAVED'; payload: string }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<WorkspaceSettings> }
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'REFRESH_FILE_ICON'; payload: { path: string; icon?: string } };
+  | { type: 'REFRESH_FILE_ICON'; payload: { path: string; icon?: string } }
+  | { type: 'SET_OPEN_FILES_AND_ACTIVE'; payload: { openFiles: OpenFile[]; activeFilePath: string | null } };
 
 // Initial state
 const initialState: WorkspaceState = {
@@ -189,6 +193,13 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
       };
     }
 
+    case 'SET_OPEN_FILES_AND_ACTIVE':
+      return {
+        ...state,
+        openFiles: action.payload.openFiles,
+        activeFilePath: action.payload.activeFilePath,
+      };
+
     default:
       return state;
   }
@@ -207,6 +218,7 @@ interface WorkspaceContextType {
   createFile: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
   createDirectory: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
+  renameEntry: (path: string, kind: 'file' | 'directory', newName: string) => Promise<string>;
   setActiveFile: (path: string) => void;
   updateContent: (path: string, content: string) => void;
   updateSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>;
@@ -502,6 +514,113 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.rootHandle, state.openFiles, closeFile, refreshTree]);
 
+  // Rename a file or directory entry
+  const renameEntry = useCallback(async (
+    path: string,
+    kind: 'file' | 'directory',
+    newName: string
+  ): Promise<string> => {
+    if (!state.rootHandle) {
+      throw new Error('No workspace opened');
+    }
+
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      throw new Error('Name cannot be empty');
+    }
+
+    const lastSlashIndex = path.lastIndexOf('/');
+    const oldName = lastSlashIndex === -1 ? path : path.substring(lastSlashIndex + 1);
+    const parentPath = lastSlashIndex === -1 ? '' : path.substring(0, lastSlashIndex);
+    const parentHandle = await getParentDirectoryHandle(state.rootHandle, path);
+
+    let targetName = trimmedName;
+
+    if (kind === 'file' && !targetName.includes('.')) {
+      const oldDotIndex = oldName.lastIndexOf('.');
+      if (oldDotIndex !== -1) {
+        targetName = `${targetName}${oldName.substring(oldDotIndex)}`;
+      } else {
+        targetName = `${targetName}.md`;
+      }
+    }
+
+    const newPath = parentPath ? `${parentPath}/${targetName}` : targetName;
+
+    try {
+      if (kind === 'file') {
+        const newHandle = await fsRenameFile(parentHandle, oldName, targetName);
+
+        const nextOpenFiles = state.openFiles.map((file) =>
+          file.path === path
+            ? { ...file, path: newPath, handle: newHandle }
+            : file
+        );
+
+        const nextActivePath = state.activeFilePath === path ? newPath : state.activeFilePath;
+
+        dispatch({
+          type: 'SET_OPEN_FILES_AND_ACTIVE',
+          payload: {
+            openFiles: nextOpenFiles,
+            activeFilePath: nextActivePath,
+          },
+        });
+      } else {
+        await fsRenameDirectory(parentHandle, oldName, targetName);
+
+        const filesNeedingPathUpdate = state.openFiles.filter(
+          (file) => file.path === path || file.path.startsWith(`${path}/`)
+        );
+
+        const pathToHandle = new Map<string, FileSystemFileHandle>();
+        await Promise.all(
+          filesNeedingPathUpdate.map(async (file) => {
+            const renamedPath = `${newPath}${file.path.slice(path.length)}`;
+            const newFileHandle = await getFileByPath(state.rootHandle as FileSystemDirectoryHandle, renamedPath);
+            pathToHandle.set(renamedPath, newFileHandle);
+          })
+        );
+
+        const nextOpenFiles = state.openFiles.map((file) => {
+          if (!(file.path === path || file.path.startsWith(`${path}/`))) {
+            return file;
+          }
+
+          const renamedPath = `${newPath}${file.path.slice(path.length)}`;
+          const newFileHandle = pathToHandle.get(renamedPath);
+          return {
+            ...file,
+            path: renamedPath,
+            ...(newFileHandle ? { handle: newFileHandle } : {}),
+          };
+        });
+
+        const nextActivePath = state.activeFilePath && (state.activeFilePath === path || state.activeFilePath.startsWith(`${path}/`))
+          ? `${newPath}${state.activeFilePath.slice(path.length)}`
+          : state.activeFilePath;
+
+        dispatch({
+          type: 'SET_OPEN_FILES_AND_ACTIVE',
+          payload: {
+            openFiles: nextOpenFiles,
+            activeFilePath: nextActivePath,
+          },
+        });
+      }
+
+      await refreshTree();
+      toast.success('Renamed successfully', { description: targetName });
+      return newPath;
+    } catch (error) {
+      console.error('Failed to rename entry:', error);
+      toast.error('Failed to rename', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [state.rootHandle, state.openFiles, state.activeFilePath, refreshTree]);
+
   // Set active file
   const setActiveFile = useCallback((path: string) => {
     dispatch({ type: 'SET_ACTIVE_FILE', payload: path });
@@ -546,6 +665,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     createFile,
     createDirectory,
     deleteEntry,
+    renameEntry,
     setActiveFile,
     updateContent,
     updateSettings,

@@ -6,6 +6,7 @@
 | `Ctrl/Cmd + P` | Quick Open | Open Command Palette to quickly search and open files |
 | `Ctrl/Cmd + S` | Save File | Manually save the currently active file |
 | `Ctrl/Cmd + W` | Close Tab | Close the current file tab (with unsaved changes check) |
+| `F2` | Rename Item | Rename the selected file or folder in the explorer |
 
 ## Navigation
 | Shortcut | Action | Description |

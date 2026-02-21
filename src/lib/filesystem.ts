@@ -283,6 +283,119 @@ export async function deleteEntry(
   }
 }
 
+async function entryExists(
+  dirHandle: FileSystemDirectoryHandle,
+  name: string
+): Promise<boolean> {
+  try {
+    await dirHandle.getFileHandle(name);
+    return true;
+  } catch {
+    // Not a file, keep checking
+  }
+
+  try {
+    await dirHandle.getDirectoryHandle(name);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function copyFileHandle(
+  sourceHandle: FileSystemFileHandle,
+  targetDirHandle: FileSystemDirectoryHandle,
+  targetName: string
+): Promise<FileSystemFileHandle> {
+  const sourceFile = await sourceHandle.getFile();
+  const targetHandle = await targetDirHandle.getFileHandle(targetName, { create: true });
+  const writable = await targetHandle.createWritable();
+  await writable.write(sourceFile);
+  await writable.close();
+  return targetHandle;
+}
+
+async function copyDirectoryContents(
+  sourceDir: FileSystemDirectoryHandle,
+  targetDir: FileSystemDirectoryHandle
+): Promise<void> {
+  for await (const entry of sourceDir.values()) {
+    if (entry.kind === 'file') {
+      await copyFileHandle(entry as FileSystemFileHandle, targetDir, entry.name);
+      continue;
+    }
+
+    const sourceSubDir = entry as FileSystemDirectoryHandle;
+    const targetSubDir = await targetDir.getDirectoryHandle(entry.name, { create: true });
+    await copyDirectoryContents(sourceSubDir, targetSubDir);
+  }
+}
+
+/**
+ * Rename a file by copying contents to a new file and deleting the old one.
+ */
+export async function renameFile(
+  dirHandle: FileSystemDirectoryHandle,
+  oldName: string,
+  newName: string
+): Promise<FileSystemFileHandle> {
+  try {
+    const sanitizedName = sanitizeFilename(newName);
+    if (!sanitizedName) {
+      throw new Error('Invalid file name');
+    }
+
+    if (oldName === sanitizedName) {
+      return await dirHandle.getFileHandle(oldName);
+    }
+
+    if (await entryExists(dirHandle, sanitizedName)) {
+      throw new Error(`An item named "${sanitizedName}" already exists`);
+    }
+
+    const sourceHandle = await dirHandle.getFileHandle(oldName);
+    const newHandle = await copyFileHandle(sourceHandle, dirHandle, sanitizedName);
+    await deleteEntry(dirHandle, oldName);
+    return newHandle;
+  } catch (error) {
+    console.error('Failed to rename file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Rename a directory by recursively copying it and deleting the old one.
+ */
+export async function renameDirectory(
+  dirHandle: FileSystemDirectoryHandle,
+  oldName: string,
+  newName: string
+): Promise<FileSystemDirectoryHandle> {
+  try {
+    const sanitizedName = sanitizeFilename(newName);
+    if (!sanitizedName) {
+      throw new Error('Invalid directory name');
+    }
+
+    if (oldName === sanitizedName) {
+      return await dirHandle.getDirectoryHandle(oldName);
+    }
+
+    if (await entryExists(dirHandle, sanitizedName)) {
+      throw new Error(`An item named "${sanitizedName}" already exists`);
+    }
+
+    const sourceDir = await dirHandle.getDirectoryHandle(oldName);
+    const targetDir = await dirHandle.getDirectoryHandle(sanitizedName, { create: true });
+    await copyDirectoryContents(sourceDir, targetDir);
+    await deleteEntry(dirHandle, oldName);
+    return targetDir;
+  } catch (error) {
+    console.error('Failed to rename directory:', error);
+    throw error;
+  }
+}
+
 /**
  * Save an image file to the assets/ directory
  * Creates the directory if it doesn't exist
