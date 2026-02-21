@@ -122,3 +122,51 @@
     @apply bg-background text-foreground;
     }
 }
+
+/* MDX Editor dark mode support */
+/* The mdx-editor uses dark-theme class and CSS variables from @radix-ui/colors */
+/* When .dark is active, override mdx-editor CSS variables for dark mode */
+.dark .mdxeditor,
+.dark .mdxeditor-root-contenteditable,
+.dark .mdxeditor-toolbar {
+  /* Use Radix dark color tokens for mdx-editor in dark mode */
+  /* These map to the dark theme colors from @radix-ui/colors */
+  color-scheme: dark;
+}
+
+/* CSS Custom Highlight API styles for search plugin */
+::highlight(MdxSearch) {
+  background: yellow;
+  color: black;
+}
+
+::highlight(MdxFocusSearch) {
+  background: fuchsia;
+  color: white;
+}
+
+/* Dark mode search highlights */
+.dark ::highlight(MdxSearch) {
+  background: rgba(255, 204, 0, 0.4);
+  color: inherit;
+}
+
+.dark ::highlight(MdxFocusSearch) {
+  background: rgba(255, 0, 255, 0.4);
+  color: inherit;
+}
+
+/* MDX Editor structural overrides */
+.mdxeditor-root-contenteditable {
+  overflow: auto;
+}
+
+.mdxeditor-toolbar {
+  flex-shrink: 0;
+}
+
+.mdxeditor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}

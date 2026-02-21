@@ -1,0 +1,510 @@
+/**
+ * Workspace Context
+ * Manages workspace state: file tree, open files, active file, settings
+ */
+
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
+import type { WorkspaceState, OpenFile, WorkspaceSettings } from '../types/workspace';
+import type { FileNode } from '../types/filesystem';
+import {
+  openWorkspace as fsOpenWorkspace,
+  restoreWorkspace as fsRestoreWorkspace,
+  buildFileTree,
+  readFile,
+  writeFile,
+  createFile as fsCreateFile,
+  createDirectory as fsCreateDirectory,
+  deleteEntry as fsDeleteEntry,
+  readFileIcon,
+  getParentDirectoryHandle,
+} from '../lib/filesystem';
+import { getSetting, saveSetting } from '../lib/storage';
+
+// Action types
+type WorkspaceAction =
+  | { type: 'SET_ROOT_HANDLE'; payload: FileSystemDirectoryHandle }
+  | { type: 'SET_FILE_TREE'; payload: FileNode[] }
+  | { type: 'OPEN_FILE'; payload: OpenFile }
+  | { type: 'CLOSE_FILE'; payload: string }
+  | { type: 'SET_ACTIVE_FILE'; payload: string }
+  | { type: 'UPDATE_CONTENT'; payload: { path: string; content: string } }
+  | { type: 'MARK_SAVED'; payload: string }
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<WorkspaceSettings> }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'REFRESH_FILE_ICON'; payload: { path: string; icon?: string } };
+
+// Initial state
+const initialState: WorkspaceState = {
+  rootHandle: null,
+  fileTree: [],
+  openFiles: [],
+  activeFilePath: null,
+  settings: {
+    autoSave: false,
+    theme: 'system',
+  },
+  isLoading: false,
+};
+
+// Reducer
+function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
+  switch (action.type) {
+    case 'SET_ROOT_HANDLE':
+      return {
+        ...state,
+        rootHandle: action.payload,
+      };
+
+    case 'SET_FILE_TREE':
+      return {
+        ...state,
+        fileTree: action.payload,
+      };
+
+    case 'OPEN_FILE': {
+      // Check if file is already open
+      const existingFile = state.openFiles.find(f => f.path === action.payload.path);
+      if (existingFile) {
+        // Just switch to it
+        return {
+          ...state,
+          activeFilePath: action.payload.path,
+        };
+      }
+
+      // Add new file to open files
+      return {
+        ...state,
+        openFiles: [...state.openFiles, action.payload],
+        activeFilePath: action.payload.path,
+      };
+    }
+
+    case 'CLOSE_FILE': {
+      const fileIndex = state.openFiles.findIndex(f => f.path === action.payload);
+      if (fileIndex === -1) return state;
+
+      const newOpenFiles = state.openFiles.filter(f => f.path !== action.payload);
+      
+      // If the closed file was active, switch to adjacent tab
+      let newActiveFilePath = state.activeFilePath;
+      if (state.activeFilePath === action.payload) {
+        if (newOpenFiles.length === 0) {
+          // No files left
+          newActiveFilePath = null;
+        } else if (fileIndex < newOpenFiles.length) {
+          // Switch to the file at the same index (or the previous one if it was the last)
+          newActiveFilePath = newOpenFiles[fileIndex].path;
+        } else {
+          // Was the last file, switch to the new last file
+          newActiveFilePath = newOpenFiles[newOpenFiles.length - 1].path;
+        }
+      }
+
+      return {
+        ...state,
+        openFiles: newOpenFiles,
+        activeFilePath: newActiveFilePath,
+      };
+    }
+
+    case 'SET_ACTIVE_FILE':
+      return {
+        ...state,
+        activeFilePath: action.payload,
+      };
+
+    case 'UPDATE_CONTENT': {
+      return {
+        ...state,
+        openFiles: state.openFiles.map(f =>
+          f.path === action.payload.path
+            ? { ...f, content: action.payload.content }
+            : f
+        ),
+      };
+    }
+
+    case 'MARK_SAVED': {
+      return {
+        ...state,
+        openFiles: state.openFiles.map(f =>
+          f.path === action.payload
+            ? { ...f, savedContent: f.content }
+            : f
+        ),
+      };
+    }
+
+    case 'UPDATE_SETTINGS':
+      return {
+        ...state,
+        settings: {
+          ...state.settings,
+          ...action.payload,
+        },
+      };
+
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
+      };
+
+    case 'REFRESH_FILE_ICON': {
+      return {
+        ...state,
+        openFiles: state.openFiles.map(f =>
+          f.path === action.payload.path
+            ? { ...f, icon: action.payload.icon }
+            : f
+        ),
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
+// Context type
+interface WorkspaceContextType {
+  state: WorkspaceState;
+  openWorkspace: () => Promise<void>;
+  restoreWorkspace: () => Promise<boolean>;
+  openFile: (path: string, handle: FileSystemFileHandle) => Promise<void>;
+  closeFile: (path: string, force?: boolean) => Promise<boolean>;
+  saveFile: (path: string) => Promise<void>;
+  saveActiveFile: () => Promise<void>;
+  refreshTree: () => Promise<void>;
+  createFile: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
+  createDirectory: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
+  deleteEntry: (path: string) => Promise<void>;
+  setActiveFile: (path: string) => void;
+  updateContent: (path: string, content: string) => void;
+  updateSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>;
+  isDirty: (path: string) => boolean;
+}
+
+const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
+
+// Provider component
+export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(workspaceReducer, initialState);
+
+  // Load settings on mount
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const autoSave = await getSetting<boolean>('autoSave');
+        const theme = await getSetting<'light' | 'dark' | 'system'>('theme');
+        
+        dispatch({
+          type: 'UPDATE_SETTINGS',
+          payload: {
+            ...(autoSave !== undefined && { autoSave }),
+            ...(theme !== undefined && { theme }),
+          },
+        });
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    }
+
+    loadSettings();
+  }, []);
+
+  // Open workspace using directory picker
+  const openWorkspace = useCallback(async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Show directory picker and save handle
+      const handle = await fsOpenWorkspace();
+      dispatch({ type: 'SET_ROOT_HANDLE', payload: handle });
+
+      // Build file tree
+      const tree = await buildFileTree(handle);
+      dispatch({ type: 'SET_FILE_TREE', payload: tree });
+      
+      toast.success('Workspace opened successfully');
+    } catch (error) {
+      console.error('Failed to open workspace:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        // User cancelled - no need to show error
+        return;
+      }
+      toast.error('Failed to open workspace', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, []);
+
+  // Restore workspace from IndexedDB
+  const restoreWorkspace = useCallback(async (): Promise<boolean> => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      const handle = await fsRestoreWorkspace();
+      if (!handle) {
+        return false;
+      }
+
+      dispatch({ type: 'SET_ROOT_HANDLE', payload: handle });
+
+      // Build file tree
+      const tree = await buildFileTree(handle);
+      dispatch({ type: 'SET_FILE_TREE', payload: tree });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to restore workspace:', error);
+      return false;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, []);
+
+  // Open a file (or switch to it if already open)
+  const openFile = useCallback(async (path: string, handle: FileSystemFileHandle) => {
+    try {
+      // Check if already open
+      const existingFile = state.openFiles.find(f => f.path === path);
+      if (existingFile) {
+        dispatch({ type: 'SET_ACTIVE_FILE', payload: path });
+        return;
+      }
+
+      // Read file content
+      const content = await readFile(handle);
+      const icon = readFileIcon(content);
+
+      const openFile: OpenFile = {
+        path,
+        handle,
+        content,
+        savedContent: content, // Initially, saved = current
+        icon,
+      };
+
+      dispatch({ type: 'OPEN_FILE', payload: openFile });
+    } catch (error) {
+      console.error('Failed to open file:', error);
+      toast.error('Failed to open file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [state.openFiles]);
+
+  // Close a file with dirty check
+  const closeFile = useCallback(async (path: string, force = false): Promise<boolean> => {
+    const file = state.openFiles.find(f => f.path === path);
+    if (!file) return true;
+
+    // Check if dirty
+    const dirty = file.content !== file.savedContent;
+    if (dirty && !force) {
+      // Prompt user
+      const discard = window.confirm(
+        `"${path}" has unsaved changes. Do you want to discard them?`
+      );
+      if (!discard) {
+        return false; // User cancelled
+      }
+    }
+
+    dispatch({ type: 'CLOSE_FILE', payload: path });
+    return true;
+  }, [state.openFiles]);
+
+  // Save a file
+  const saveFile = useCallback(async (path: string) => {
+    const file = state.openFiles.find(f => f.path === path);
+    if (!file) {
+      throw new Error(`File ${path} is not open`);
+    }
+
+    try {
+      await writeFile(file.handle, file.content);
+      dispatch({ type: 'MARK_SAVED', payload: path });
+
+      // Re-read icon in case it changed
+      const icon = readFileIcon(file.content);
+      dispatch({ type: 'REFRESH_FILE_ICON', payload: { path, icon } });
+      
+      toast.success('File saved', { description: path });
+    } catch (error) {
+      console.error('Failed to save file:', error);
+      toast.error('Failed to save file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [state.openFiles]);
+
+  // Save the active file
+  const saveActiveFile = useCallback(async () => {
+    if (!state.activeFilePath) {
+      throw new Error('No active file to save');
+    }
+    await saveFile(state.activeFilePath);
+  }, [state.activeFilePath, saveFile]);
+
+  // Refresh file tree
+  const refreshTree = useCallback(async () => {
+    if (!state.rootHandle) return;
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const tree = await buildFileTree(state.rootHandle);
+      dispatch({ type: 'SET_FILE_TREE', payload: tree });
+    } catch (error) {
+      console.error('Failed to refresh tree:', error);
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [state.rootHandle]);
+
+  // Create a file
+  const createFile = useCallback(async (dirHandle: FileSystemDirectoryHandle, name: string) => {
+    try {
+      await fsCreateFile(dirHandle, name);
+      await refreshTree();
+      toast.success('File created', { description: name });
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      toast.error('Failed to create file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [refreshTree]);
+
+  // Create a directory
+  const createDirectory = useCallback(async (dirHandle: FileSystemDirectoryHandle, name: string) => {
+    try {
+      await fsCreateDirectory(dirHandle, name);
+      await refreshTree();
+      toast.success('Directory created', { description: name });
+    } catch (error) {
+      console.error('Failed to create directory:', error);
+      toast.error('Failed to create directory', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [refreshTree]);
+
+  // Delete an entry
+  const deleteEntry = useCallback(async (path: string) => {
+    if (!state.rootHandle) return;
+
+    try {
+      // Close the file if it's open
+      const fileToClose = state.openFiles.find(f => f.path === path || f.path.startsWith(path + '/'));
+      if (fileToClose) {
+        const closed = await closeFile(fileToClose.path, false);
+        if (!closed) {
+          return; // User cancelled
+        }
+      }
+
+      // Get the item name from the path
+      const lastSlashIndex = path.lastIndexOf('/');
+      const name = lastSlashIndex === -1 ? path : path.substring(lastSlashIndex + 1);
+
+      // Confirm deletion
+      const confirmed = window.confirm(
+        `Are you sure you want to delete "${name}"? This action cannot be undone.`
+      );
+      if (!confirmed) return;
+
+      // Get parent directory handle
+      const parentHandle = await getParentDirectoryHandle(state.rootHandle, path);
+      
+      // Delete the entry
+      await fsDeleteEntry(parentHandle, name);
+      
+      // Refresh tree
+      await refreshTree();
+      
+      toast.success('Deleted successfully', { description: name });
+    } catch (error) {
+      console.error('Failed to delete entry:', error);
+      toast.error('Failed to delete', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [state.rootHandle, state.openFiles, closeFile, refreshTree]);
+
+  // Set active file
+  const setActiveFile = useCallback((path: string) => {
+    dispatch({ type: 'SET_ACTIVE_FILE', payload: path });
+  }, []);
+
+  // Update file content (marks as dirty)
+  const updateContent = useCallback((path: string, content: string) => {
+    dispatch({ type: 'UPDATE_CONTENT', payload: { path, content } });
+  }, []);
+
+  // Update settings (and persist)
+  const updateSettings = useCallback(async (settings: Partial<WorkspaceSettings>) => {
+    dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
+
+    // Persist to IndexedDB
+    try {
+      for (const [key, value] of Object.entries(settings)) {
+        await saveSetting(key, value);
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  }, []);
+
+  // Check if a file is dirty
+  const isDirty = useCallback((path: string): boolean => {
+    const file = state.openFiles.find(f => f.path === path);
+    if (!file) return false;
+    return file.content !== file.savedContent;
+  }, [state.openFiles]);
+
+  const value: WorkspaceContextType = {
+    state,
+    openWorkspace,
+    restoreWorkspace,
+    openFile,
+    closeFile,
+    saveFile,
+    saveActiveFile,
+    refreshTree,
+    createFile,
+    createDirectory,
+    deleteEntry,
+    setActiveFile,
+    updateContent,
+    updateSettings,
+    isDirty,
+  };
+
+  return (
+    <WorkspaceContext.Provider value={value}>
+      {children}
+    </WorkspaceContext.Provider>
+  );
+}
+
+// Custom hook to use workspace context
+export function useWorkspace() {
+  const context = useContext(WorkspaceContext);
+  if (!context) {
+    throw new Error('useWorkspace must be used within WorkspaceProvider');
+  }
+  return context;
+}
