@@ -61,6 +61,8 @@ const initialState: WorkspaceState = {
   activeFilePath: null,
   settings: {
     autoSave: false,
+    autoSaveDelay: 300,
+    autoSaveNotify: true,
     theme: 'system',
     maxOpenTabs: 0,
   },
@@ -252,6 +254,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     async function loadSettings() {
       try {
         const autoSave = await getSetting<boolean>('autoSave');
+        const autoSaveDelay = await getSetting<number>('autoSaveDelay');
+        const autoSaveNotify = await getSetting<boolean>('autoSaveNotify');
         const theme = await getSetting<'light' | 'dark' | 'system'>('theme');
         const maxOpenTabs = await getSetting<number>('maxOpenTabs');
         
@@ -259,6 +263,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           type: 'UPDATE_SETTINGS',
           payload: {
             ...(autoSave !== undefined && { autoSave }),
+            ...(autoSaveDelay !== undefined && { autoSaveDelay }),
+            ...(autoSaveNotify !== undefined && { autoSaveNotify }),
             ...(theme !== undefined && { theme }),
             ...(maxOpenTabs !== undefined && { maxOpenTabs }),
           },
@@ -424,7 +430,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const icon = readFileIcon(file.content);
       dispatch({ type: 'REFRESH_FILE_ICON', payload: { path, icon } });
       
-      toast.success('File saved', { description: path });
+      if (state.settings.autoSaveNotify) {
+        toast.success('File saved', { description: path });
+      }
     } catch (error) {
       console.error('Failed to save file:', error);
       toast.error('Failed to save file', {
@@ -432,7 +440,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  }, [state.openFiles]);
+  }, [state.openFiles, state.settings.autoSaveNotify]);
 
   // Save the active file
   const saveActiveFile = useCallback(async () => {

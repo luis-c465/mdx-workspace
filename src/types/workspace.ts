@@ -23,8 +23,12 @@ export interface OpenFile {
 }
 
 export interface WorkspaceSettings {
-  /** Enable auto-save after 300ms of inactivity */
+  /** Enable auto-save */
   autoSave: boolean;
+  /** Delay in milliseconds before triggering auto-save */
+  autoSaveDelay: number;
+  /** Show a notification after saving a file */
+  autoSaveNotify: boolean;
   /** Theme preference (handled by ThemeContext, stored here for persistence) */
   theme: 'light' | 'dark' | 'system';
   /** Maximum number of open tabs (0 means unlimited) */

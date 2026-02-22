@@ -72,7 +72,7 @@ export function MarkdownEditor({
     }
   }, [filePath])
 
-  // Auto-save hook - saves content after 300ms of inactivity (Step 11)
+  // Auto-save hook - saves content after configured inactivity delay
   useAutoSave({
     content,
     savedContent,
@@ -80,7 +80,7 @@ export function MarkdownEditor({
       await saveFile(filePath)
     }, [filePath, saveFile]),
     enabled: state.settings.autoSave,
-    delay: 300,
+    delay: state.settings.autoSaveDelay,
   })
 
   // Image upload handler - saves images to workspace assets/ folder
