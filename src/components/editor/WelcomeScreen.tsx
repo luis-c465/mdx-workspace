@@ -1,3 +1,5 @@
+import { CircleDot, ExternalLink, Github } from 'lucide-react'
+
 /**
  * Welcome Screen Component
  * Displayed when no file is open in the editor
@@ -30,6 +32,46 @@ export function WelcomeScreen() {
               Quick open file
             </div>
           </div>
+        </div>
+
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>Made with ❤️ by Luis Canada</p>
+          <p className="inline-flex items-center gap-1">
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            <span>
+              Powered by{' '}
+              <a
+                href="https://mdxeditor.dev/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                MDX Editor
+              </a>{' '}
+              by Petyo Ivanov
+            </span>
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <a
+              href="https://github.com/luis-c465/mdx-workspace"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-foreground"
+            >
+              <Github className="h-4 w-4" aria-hidden="true" />
+              Source Code
+            </a>
+            <a
+              href="https://github.com/luis-c465/mdx-workspace/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline underline-offset-4 hover:text-foreground"
+            >
+              <CircleDot className="h-4 w-4" aria-hidden="true" />
+              Report an Issue
+            </a>
+          </div>
+          <p className="text-xs">Version {__APP_VERSION__}</p>
         </div>
       </div>
     </div>
