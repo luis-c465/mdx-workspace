@@ -96,7 +96,7 @@ export function WorkspaceSearch({ isOpen, onClose }: WorkspaceSearchProps) {
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="right" className="w-full sm:max-w-lg">
+      <SheetContent side="right" className="flex h-full w-full flex-col overflow-hidden sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Search Workspace</SheetTitle>
           <SheetDescription>
@@ -104,7 +104,7 @@ export function WorkspaceSearch({ isOpen, onClose }: WorkspaceSearchProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
           {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -129,7 +129,7 @@ export function WorkspaceSearch({ isOpen, onClose }: WorkspaceSearchProps) {
           </div>
 
           {/* Status Info */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             <span>
               {isIndexing ? (
                 <span className="flex items-center gap-2">
@@ -146,8 +146,8 @@ export function WorkspaceSearch({ isOpen, onClose }: WorkspaceSearchProps) {
           </div>
 
           {/* Results */}
-          <ScrollArea className="h-[calc(100vh-16rem)]">
-            <div className="space-y-1 pr-4">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="space-y-1 pb-2">
               {isSearching ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -173,15 +173,12 @@ export function WorkspaceSearch({ isOpen, onClose }: WorkspaceSearchProps) {
           </ScrollArea>
 
           {/* Keyboard Hints */}
-          <div className="pt-4 border-t text-xs text-muted-foreground space-y-1">
-            <div className="flex items-center justify-between">
+          <div className="border-t pt-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>Press</span>
-              <span className="font-mono bg-muted px-2 py-0.5 rounded">Ctrl+Shift+F</span>
-              <span>to close</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Press</span>
-              <span className="font-mono bg-muted px-2 py-0.5 rounded">Esc</span>
+              <span className="rounded bg-muted px-2 py-0.5 font-mono">Ctrl+Shift+F</span>
+              <span>or</span>
+              <span className="rounded bg-muted px-2 py-0.5 font-mono">Esc</span>
               <span>to close</span>
             </div>
           </div>
