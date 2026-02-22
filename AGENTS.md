@@ -15,16 +15,16 @@ own git repo. Ignore it unless explicitly working on it.
 
 ```bash
 # Development server
-npm run dev           # vite dev server
+bun run dev           # vite dev server
 
 # Production build (type-check then bundle)
-npm run build         # tsc -b && vite build
+bun run build         # tsc -b && vite build
 
 # Lint
-npm run lint          # eslint .
+bun run lint          # eslint .
 
 # Preview production build
-npm run preview       # vite preview
+bun run preview       # vite preview
 ```
 
 ### Testing
@@ -35,8 +35,8 @@ that run in the dev console:
 - `src/lib/filesystem-tests.ts` — exports to `window.fsTests`; run `window.fsTests.runAllTests()` in browser console.
 - `src/lib/workspace-tests.ts` — runs automatically in dev mode via `import.meta.env.DEV`.
 
-If adding a new feature, validate by running `npm run build` (catches type errors) and
-`npm run lint`. Manual testing is done in the browser.
+If adding a new feature, validate by running `bun run build` (catches type errors) and
+`bun run lint`. Manual testing is done in the browser.
 
 ## Code Style Guidelines
 
