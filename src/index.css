@@ -126,13 +126,15 @@
 }
 
 /* MDX Editor dark mode support */
-/* The mdx-editor uses dark-theme class and CSS variables from @radix-ui/colors */
-/* When .dark is active, override mdx-editor CSS variables for dark mode */
+/* Override hardcoded light dropdown backgrounds from the editor stylesheet */
 .dark .mdxeditor,
+.dark .mdxeditor-popup-container {
+  --basePageBg: var(--slate-1);
+  color-scheme: dark;
+}
+
 .dark .mdxeditor-root-contenteditable,
 .dark .mdxeditor-toolbar {
-  /* Use Radix dark color tokens for mdx-editor in dark mode */
-  /* These map to the dark theme colors from @radix-ui/colors */
   color-scheme: dark;
 }
 
