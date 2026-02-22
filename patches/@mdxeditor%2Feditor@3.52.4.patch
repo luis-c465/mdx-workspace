@@ -1,0 +1,17 @@
+diff --git a/dist/plugins/codemirror/CodeMirrorEditor.js b/dist/plugins/codemirror/CodeMirrorEditor.js
+index e3d8a7f7d52dd641b7733fb534774e7d2e6742b8..696e75ab16c16fcde64be111e3ac13718ffa5de1 100644
+--- a/dist/plugins/codemirror/CodeMirrorEditor.js
++++ b/dist/plugins/codemirror/CodeMirrorEditor.js
+@@ -37,10 +37,10 @@ const CodeMirrorEditor = ({ language, nodeKey, code, focusEmitter }) => {
+   React__default.useEffect(() => {
+     const el = elRef.current;
+     void (async () => {
++      const themeExtensions = codeMirrorExtensions.length > 0 ? codeMirrorExtensions : [basicLight];
+       const extensions = [
+-        ...codeMirrorExtensions,
+         basicSetup,
+-        basicLight,
++        ...themeExtensions,
+         lineNumbers(),
+         keymap.of([indentWithTab]),
+         EditorView.lineWrapping,

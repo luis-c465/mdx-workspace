@@ -24,6 +24,8 @@ import {
   toolbarPlugin,
 } from '@mdxeditor/editor'
 import '@mdxeditor/editor/style.css'
+import { basicDark } from 'cm6-theme-basic-dark'
+import { basicLight } from 'cm6-theme-basic-light'
 
 import { EditorToolbar } from './EditorToolbar'
 import { searchPlugin } from './search/searchPlugin'
@@ -86,24 +88,24 @@ export function MarkdownEditor({
 
       // Save the image to the assets/ directory
       const relativePath = await saveImage(state.rootHandle, file)
-      
+
       // Refresh the file tree so the new image appears in the sidebar
       await refreshTree()
-      
+
       // Show success notification
       toast.success(`Image saved: ${relativePath}`)
-      
+
       return relativePath
     } catch (error) {
       console.error('Failed to upload image:', error)
-      
+
       // Check if permission was lost
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
         toast.error('Permission denied. Please re-open the workspace.')
       } else {
         toast.error(`Failed to save image: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
-      
+
       throw error
     }
   }, [state.rootHandle, refreshTree])
@@ -158,6 +160,7 @@ export function MarkdownEditor({
       // Code blocks with CodeMirror
       codeBlockPlugin({ defaultCodeBlockLanguage: 'txt' }),
       codeMirrorPlugin({
+        codeMirrorExtensions: [resolvedTheme === 'dark' ? basicDark : basicLight],
         codeBlockLanguages: {
           js: 'JavaScript',
           jsx: 'JavaScript (React)',
@@ -198,7 +201,7 @@ export function MarkdownEditor({
       // Search & Replace plugin (Step 10)
       searchPlugin(),
     ],
-    [savedContent, handleImageUpload, handleImagePreview] // Re-create plugins when handlers or savedContent changes
+    [savedContent, handleImageUpload, handleImagePreview, resolvedTheme] // Re-create plugins when handlers, savedContent, or theme changes
   )
 
   // Apply dark theme class
@@ -250,7 +253,7 @@ export function MarkdownEditor({
   return (
     <div ref={editorContainerRef} className="h-full w-full" onMouseDown={handleBackgroundMouseDown}>
       <MDXEditor
-        key={filePath} // Force re-mount on file switch
+        key={`${filePath}-${resolvedTheme}`} // Force re-mount on file or theme switch
         markdown={content}
         onChange={onChange}
         plugins={plugins}
