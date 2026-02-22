@@ -6,6 +6,41 @@ interface SearchResultProps {
   onClick: (path: string) => void;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightSnippet(
+  snippet: string,
+  terms: string[]
+): Array<{ text: string; isMatch: boolean }> {
+  const normalizedTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+
+  if (!snippet || normalizedTerms.length === 0) {
+    return [{ text: snippet, isMatch: false }];
+  }
+
+  const pattern = normalizedTerms
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join('|');
+
+  if (!pattern) {
+    return [{ text: snippet, isMatch: false }];
+  }
+
+  const splitRegex = new RegExp(`(${pattern})`, 'gi');
+  const exactMatchRegex = new RegExp(`^(?:${pattern})$`, 'i');
+
+  return snippet
+    .split(splitRegex)
+    .filter((segment) => segment.length > 0)
+    .map((segment) => ({
+      text: segment,
+      isMatch: exactMatchRegex.test(segment)
+    }));
+}
+
 export function SearchResult({ result, onClick }: SearchResultProps) {
   const filename = result.path.split('/').pop() || result.path;
   const directory = result.path.substring(0, result.path.lastIndexOf('/')) || '/';
@@ -53,7 +88,18 @@ export function SearchResult({ result, onClick }: SearchResultProps) {
         {/* Snippet */}
         {result.snippet && (
           <div className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-            {result.snippet}
+            {highlightSnippet(result.snippet, result.terms ?? []).map((part, index) =>
+              part.isMatch ? (
+                <mark
+                  key={index}
+                  className="rounded-sm bg-yellow-200 px-0.5 text-inherit dark:bg-yellow-800"
+                >
+                  {part.text}
+                </mark>
+              ) : (
+                <span key={index}>{part.text}</span>
+              )
+            )}
           </div>
         )}
 
