@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { CalendarDays, FolderPlus, FilePlus, RefreshCw } from 'lucide-react';
 import { Button } from '~/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import { useWorkspace } from '~/contexts/WorkspaceContext';
 import { NewItemInput } from './NewItemInput';
 
@@ -79,46 +80,66 @@ export function FileTreeActions() {
 
   return (
     <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="New file"
-        onClick={() => setCreatingItem('file')}
-        disabled={!state.rootHandle}
-      >
-        <FilePlus className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="Open daily note"
-        onClick={handleOpenDailyNote}
-        disabled={!state.rootHandle || isOpeningDailyNote}
-      >
-        <CalendarDays className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="New folder"
-        onClick={() => setCreatingItem('folder')}
-        disabled={!state.rootHandle}
-      >
-        <FolderPlus className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="Refresh"
-        onClick={handleRefresh}
-        disabled={!state.rootHandle || isRefreshing}
-      >
-        <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="New file"
+            onClick={() => setCreatingItem('file')}
+            disabled={!state.rootHandle}
+          >
+            <FilePlus className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>New file</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="Open daily note"
+            onClick={handleOpenDailyNote}
+            disabled={!state.rootHandle || isOpeningDailyNote}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Open daily note</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="New folder"
+            onClick={() => setCreatingItem('folder')}
+            disabled={!state.rootHandle}
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>New folder</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="Refresh"
+            onClick={handleRefresh}
+            disabled={!state.rootHandle || isRefreshing}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Refresh</TooltipContent>
+      </Tooltip>
 
       {/* Render new item input as a portal/floating element */}
       {creatingItem && state.rootHandle && (

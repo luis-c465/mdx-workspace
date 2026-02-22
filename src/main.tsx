@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { TooltipProvider } from './components/ui/tooltip'
 
 // Import filesystem tests for development/verification
 import './lib/filesystem-tests'
@@ -28,9 +29,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <ThemeProvider>
-        <WorkspaceProvider>
-          <App />
-        </WorkspaceProvider>
+        <TooltipProvider>
+          <WorkspaceProvider>
+            <App />
+          </WorkspaceProvider>
+        </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
