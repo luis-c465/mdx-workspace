@@ -29,6 +29,7 @@ import { basicLight } from 'cm6-theme-basic-light'
 
 import { EditorToolbar } from './EditorToolbar'
 import { ImageDialog } from './ImageDialog'
+import { LinkDialog } from './LinkDialog'
 import { searchPlugin } from './search/searchPlugin'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
@@ -156,7 +157,9 @@ export function MarkdownEditor({
 
       // Links
       linkPlugin(),
-      linkDialogPlugin(),
+      linkDialogPlugin({
+        LinkDialog,
+      }),
 
       // Images - with workspace image upload handler and custom shadcn dialog
       imagePlugin({
