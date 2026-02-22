@@ -28,6 +28,7 @@ import { basicDark } from 'cm6-theme-basic-dark'
 import { basicLight } from 'cm6-theme-basic-light'
 
 import { EditorToolbar } from './EditorToolbar'
+import { ImageDialog } from './ImageDialog'
 import { searchPlugin } from './search/searchPlugin'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
@@ -148,10 +149,12 @@ export function MarkdownEditor({
       linkPlugin(),
       linkDialogPlugin(),
 
-      // Images - with workspace image upload handler
+      // Images - with workspace image upload handler and custom shadcn dialog
       imagePlugin({
         imageUploadHandler: handleImageUpload,
         imagePreviewHandler: handleImagePreview,
+        allowSetImageDimensions: true,
+        ImageDialog,
       }),
 
       // Tables
