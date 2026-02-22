@@ -1,75 +1,87 @@
-# React + TypeScript + Vite
+# MDX Workspace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> A local-first PWA markdown editor with WYSIWYG editing, workspace management, and full-text search.
 
-Currently, two official plugins are available:
+![MDX Workspace main view](assets/main.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- WYSIWYG markdown editing powered by `@mdxeditor/editor` (Lexical-based)
+- Local filesystem workspaces via the File System Access API
+- File explorer tree with create, rename, delete, refresh, and emoji file icons
+- Tabbed editing with active tab state and dirty file indicators
+- Auto-save with 300ms debounce and manual save shortcut (`Ctrl/Cmd+S`)
+- In-editor find/replace with CSS Highlight API support
+- Workspace-wide full-text search powered by MiniSearch (fuzzy + prefix matching)
+- Rich text, source, and diff views for comparing edits against saved disk content
+- Image paste/drop upload to workspace `assets/` with relative markdown paths
+- Code block editing with CodeMirror language support
+- Command palette quick-open (`Ctrl/Cmd+P`)
+- Installable PWA with offline support and automatic updates
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## Tech Stack
 
-Note: This will impact Vite dev & build performances.
+- React 19 + React Compiler
+- TypeScript (strict mode)
+- Vite 7
+- Tailwind CSS v4 + shadcn/ui
+- `@mdxeditor/editor`
+- MiniSearch
+- `idb-keyval` (IndexedDB persistence)
+- `vite-plugin-pwa` (Workbox)
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js 18+ or Bun
+- Chromium-based browser (Chrome, Edge, Brave, Opera)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+bun install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+bun run dev
 ```
+
+### Build
+
+```bash
+bun run build
+```
+
+### Preview Production Build
+
+```bash
+bun run preview
+```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd + P` | Quick open file (command palette) |
+| `Ctrl/Cmd + S` | Save active file |
+| `Ctrl/Cmd + W` | Close active tab |
+| `Ctrl/Cmd + F` | Find in current file |
+| `Ctrl/Cmd + Shift + F` | Search across workspace |
+| `Ctrl/Cmd + B` | Toggle sidebar |
+| `F2` | Rename selected file/folder |
+| `Escape` | Close dialogs/search panels |
+
+For the full reference, see `KEYBOARD_SHORTCUTS.md`.
+
+## Browser Requirements
+
+- Uses File System Access API for direct file reads/writes
+- Uses CSS Highlight API for in-editor search highlighting
+- Best experience is currently Chromium-based browsers
+
+## License
+
+MIT
