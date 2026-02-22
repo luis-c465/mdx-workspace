@@ -4,15 +4,16 @@
  */
 
 import { useState } from 'react';
-import { FolderPlus, FilePlus, RefreshCw } from 'lucide-react';
+import { CalendarDays, FolderPlus, FilePlus, RefreshCw } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { useWorkspace } from '~/contexts/WorkspaceContext';
 import { NewItemInput } from './NewItemInput';
 
 export function FileTreeActions() {
-  const { state, refreshTree } = useWorkspace();
+  const { state, openFile, refreshTree } = useWorkspace();
   const [creatingItem, setCreatingItem] = useState<'file' | 'folder' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOpeningDailyNote, setIsOpeningDailyNote] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -22,6 +23,57 @@ export function FileTreeActions() {
       console.error('Failed to refresh tree:', error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleOpenDailyNote = async () => {
+    if (!state.rootHandle) return;
+
+    setIsOpeningDailyNote(true);
+
+    try {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const fileName = `${day}-${month}-${year}.md`;
+
+      let hasTreeChanges = false;
+      let dailyHandle: FileSystemDirectoryHandle;
+
+      try {
+        dailyHandle = await state.rootHandle.getDirectoryHandle('daily');
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'NotFoundError') {
+          dailyHandle = await state.rootHandle.getDirectoryHandle('daily', { create: true });
+          hasTreeChanges = true;
+        } else {
+          throw error;
+        }
+      }
+
+      let noteHandle: FileSystemFileHandle;
+
+      try {
+        noteHandle = await dailyHandle.getFileHandle(fileName);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'NotFoundError') {
+          noteHandle = await dailyHandle.getFileHandle(fileName, { create: true });
+          hasTreeChanges = true;
+        } else {
+          throw error;
+        }
+      }
+
+      if (hasTreeChanges) {
+        await refreshTree();
+      }
+
+      await openFile(`daily/${fileName}`, noteHandle);
+    } catch (error) {
+      console.error('Failed to open daily note:', error);
+    } finally {
+      setIsOpeningDailyNote(false);
     }
   };
 
@@ -36,6 +88,16 @@ export function FileTreeActions() {
         disabled={!state.rootHandle}
       >
         <FilePlus className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6"
+        aria-label="Open daily note"
+        onClick={handleOpenDailyNote}
+        disabled={!state.rootHandle || isOpeningDailyNote}
+      >
+        <CalendarDays className="h-3.5 w-3.5" />
       </Button>
       <Button
         variant="ghost"
