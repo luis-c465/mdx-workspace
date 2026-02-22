@@ -311,10 +311,11 @@ export function FileTreeNode({
       </ContextMenu>
 
       {/* Emoji Picker */}
-      {showEmojiPicker && node.kind === 'file' && (
+      {node.kind === 'file' && (
         <EmojiPicker
           node={node}
-          onClose={() => setShowEmojiPicker(false)}
+          open={showEmojiPicker}
+          onOpenChange={setShowEmojiPicker}
         />
       )}
 

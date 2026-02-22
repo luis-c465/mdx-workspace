@@ -24,6 +24,7 @@
     "clsx": "^2.1.1",
     "cm6-theme-basic-dark": "^0.2.0",
     "cmdk": "^1.1.1",
+    "frimousse": "^0.3.0",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.575.0",
     "minisearch": "^7.2.0",
