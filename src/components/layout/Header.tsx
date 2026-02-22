@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Moon, Sun, Settings, Search, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { Moon, Sun, Settings, Search, PanelLeftClose, PanelLeft, CircleHelp } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Switch } from '~/components/ui/switch'
 import { Separator } from '~/components/ui/separator'
 import { SettingsDialog } from '~/components/settings/SettingsDialog'
+import { HelpDialog } from '~/components/settings/HelpDialog'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
 
@@ -15,6 +16,7 @@ interface HeaderProps {
 
 export function Header({ onSearchClick, onToggleSidebar, isSidebarCollapsed }: HeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
   const { resolvedTheme, setTheme } = useThemeContext()
   const { state, updateSettings } = useWorkspace()
   const autoSave = state.settings.autoSave
@@ -104,11 +106,26 @@ export function Header({ onSearchClick, onToggleSidebar, isSidebarCollapsed }: H
         >
           <Settings className="h-4 w-4" />
         </Button>
+
+        {/* Help button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Help"
+          title="About and keyboard shortcuts"
+          onClick={() => setIsHelpOpen(true)}
+        >
+          <CircleHelp className="h-4 w-4" />
+        </Button>
       </div>
 
       <SettingsDialog
         open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
+      />
+      <HelpDialog
+        open={isHelpOpen}
+        onOpenChange={setIsHelpOpen}
       />
     </header>
   )
