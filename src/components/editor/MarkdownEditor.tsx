@@ -194,6 +194,7 @@ export function MarkdownEditor({
       diffSourcePlugin({
         viewMode: 'rich-text',
         diffMarkdown: savedContent,
+        codeMirrorExtensions: [resolvedTheme === 'dark' ? basicDark : basicLight],
       }),
 
       // Toolbar
