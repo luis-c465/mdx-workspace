@@ -7,6 +7,8 @@ import {
   DiffSourceToggleWrapper,
   UndoRedo,
   BoldItalicUnderlineToggles,
+  StrikeThroughSupSubToggles,
+  HighlightToggle,
   CodeToggle,
   BlockTypeSelect,
   ListsToggle,
@@ -38,6 +40,8 @@ export function EditorToolbar() {
                 <UndoRedo />
                 <Separator />
                 <BoldItalicUnderlineToggles />
+                <StrikeThroughSupSubToggles options={['Strikethrough']} />
+                <HighlightToggle />
                 <CodeToggle />
                 <Separator />
                 <BlockTypeSelect />
