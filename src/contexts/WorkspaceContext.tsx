@@ -50,6 +50,7 @@ type WorkspaceAction =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<WorkspaceSettings> }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'REFRESH_FILE_ICON'; payload: { path: string; icon?: string } }
+  | { type: 'TOGGLE_PIN_FILE'; payload: string }
   | { type: 'SET_OPEN_FILES_AND_ACTIVE'; payload: { openFiles: OpenFile[]; activeFilePath: string | null } };
 
 // Initial state
@@ -193,6 +194,17 @@ function workspaceReducer(state: WorkspaceState, action: WorkspaceAction): Works
       };
     }
 
+    case 'TOGGLE_PIN_FILE': {
+      return {
+        ...state,
+        openFiles: state.openFiles.map(f =>
+          f.path === action.payload
+            ? { ...f, isPinned: !f.isPinned }
+            : f
+        ),
+      };
+    }
+
     case 'SET_OPEN_FILES_AND_ACTIVE':
       return {
         ...state,
@@ -214,6 +226,10 @@ interface WorkspaceContextType {
   closeFile: (path: string, force?: boolean) => Promise<boolean>;
   saveFile: (path: string) => Promise<void>;
   saveActiveFile: () => Promise<void>;
+  pinFile: (path: string) => void;
+  closeOtherTabs: (path: string) => Promise<void>;
+  closeTabsToLeft: (path: string) => Promise<void>;
+  closeTabsToRight: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   createFile: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
   createDirectory: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
@@ -320,10 +336,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Enforce tab limit using LRU strategy (excluding active tab when possible)
+      // Enforce tab limit using LRU strategy (excluding active and pinned tabs when possible)
       if (state.settings.maxOpenTabs > 0 && state.openFiles.length >= state.settings.maxOpenTabs) {
-        const nonActiveFiles = state.openFiles.filter((f) => f.path !== state.activeFilePath);
-        const lruCandidate = (nonActiveFiles.length > 0 ? nonActiveFiles : state.openFiles)
+        const nonActiveUnpinnedFiles = state.openFiles.filter((f) => f.path !== state.activeFilePath && !f.isPinned);
+        const unpinnedFiles = state.openFiles.filter((f) => !f.isPinned);
+        const lruCandidate = (nonActiveUnpinnedFiles.length > 0 ? nonActiveUnpinnedFiles : unpinnedFiles)
           .slice()
           .sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)[0];
 
@@ -424,6 +441,63 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
     await saveFile(state.activeFilePath);
   }, [state.activeFilePath, saveFile]);
+
+  // Toggle pin state for a tab
+  const pinFile = useCallback((path: string) => {
+    dispatch({ type: 'TOGGLE_PIN_FILE', payload: path });
+  }, []);
+
+  // Close all tabs except the specified one
+  const closeOtherTabs = useCallback(async (path: string): Promise<void> => {
+    const pathsToClose = state.openFiles
+      .map((file) => file.path)
+      .filter((filePath) => filePath !== path);
+
+    for (const filePath of pathsToClose) {
+      const closed = await closeFile(filePath);
+      if (!closed) {
+        return;
+      }
+    }
+  }, [closeFile, state.openFiles]);
+
+  // Close tabs that appear before the specified tab
+  const closeTabsToLeft = useCallback(async (path: string): Promise<void> => {
+    const tabIndex = state.openFiles.findIndex((file) => file.path === path);
+    if (tabIndex <= 0) {
+      return;
+    }
+
+    const pathsToClose = state.openFiles
+      .slice(0, tabIndex)
+      .map((file) => file.path);
+
+    for (const filePath of pathsToClose) {
+      const closed = await closeFile(filePath);
+      if (!closed) {
+        return;
+      }
+    }
+  }, [closeFile, state.openFiles]);
+
+  // Close tabs that appear after the specified tab
+  const closeTabsToRight = useCallback(async (path: string): Promise<void> => {
+    const tabIndex = state.openFiles.findIndex((file) => file.path === path);
+    if (tabIndex === -1 || tabIndex >= state.openFiles.length - 1) {
+      return;
+    }
+
+    const pathsToClose = state.openFiles
+      .slice(tabIndex + 1)
+      .map((file) => file.path);
+
+    for (const filePath of pathsToClose) {
+      const closed = await closeFile(filePath);
+      if (!closed) {
+        return;
+      }
+    }
+  }, [closeFile, state.openFiles]);
 
   // Refresh file tree
   const refreshTree = useCallback(async () => {
@@ -661,6 +735,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     closeFile,
     saveFile,
     saveActiveFile,
+    pinFile,
+    closeOtherTabs,
+    closeTabsToLeft,
+    closeTabsToRight,
     refreshTree,
     createFile,
     createDirectory,

@@ -13,7 +13,19 @@ import { useWorkspace } from '~/contexts/WorkspaceContext'
 import { toast } from 'sonner'
 
 export function EditorArea() {
-  const { state, setActiveFile, closeFile, updateContent, isDirty, saveActiveFile } = useWorkspace()
+  const {
+    state,
+    setActiveFile,
+    closeFile,
+    updateContent,
+    isDirty,
+    saveActiveFile,
+    saveFile,
+    pinFile,
+    closeOtherTabs,
+    closeTabsToLeft,
+    closeTabsToRight,
+  } = useWorkspace()
 
   // Manual save keyboard shortcut (Ctrl/Cmd+S) - Step 11
   useEffect(() => {
@@ -45,6 +57,7 @@ export function EditorArea() {
     name: file.path.split('/').pop() || file.path,
     icon: file.icon,
     isDirty: isDirty(file.path),
+    isPinned: file.isPinned,
   }))
 
   const handleTabClick = (path: string) => {
@@ -53,6 +66,40 @@ export function EditorArea() {
 
   const handleTabClose = (path: string, force = false) => {
     closeFile(path, force)
+  }
+
+  const handleTabPin = (path: string) => {
+    pinFile(path)
+  }
+
+  const handleTabSave = async (path: string) => {
+    try {
+      await saveFile(path)
+    } catch (error) {
+      console.error('Failed to save tab:', error)
+    }
+  }
+
+  const handleCloseOthers = async (path: string) => {
+    await closeOtherTabs(path)
+  }
+
+  const handleCloseLeft = async (path: string) => {
+    await closeTabsToLeft(path)
+  }
+
+  const handleCloseRight = async (path: string) => {
+    await closeTabsToRight(path)
+  }
+
+  const handleCopyRelativePath = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path)
+      toast.success('Relative path copied')
+    } catch (error) {
+      console.error('Failed to copy relative path:', error)
+      toast.error('Failed to copy path')
+    }
   }
 
   // Get active file data
@@ -67,6 +114,12 @@ export function EditorArea() {
         activeTabPath={state.activeFilePath}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
+        onTabPin={handleTabPin}
+        onTabSave={handleTabSave}
+        onCloseOthers={handleCloseOthers}
+        onCloseLeft={handleCloseLeft}
+        onCloseRight={handleCloseRight}
+        onCopyRelativePath={handleCopyRelativePath}
       />
 
       {/* Render editor or welcome screen */}

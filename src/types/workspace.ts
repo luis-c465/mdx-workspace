@@ -18,6 +18,8 @@ export interface OpenFile {
   lastAccessedAt: number;
   /** Optional emoji icon from front-matter */
   icon?: string;
+  /** Pinned tabs are excluded from automatic tab eviction */
+  isPinned?: boolean;
 }
 
 export interface WorkspaceSettings {
