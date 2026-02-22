@@ -12,11 +12,13 @@ import { cn } from '~/lib/utils';
 interface NewItemInputProps {
   type: 'file' | 'folder';
   parentHandle: FileSystemDirectoryHandle | null;
+  /** Relative path of the parent directory (e.g. "notes/2024"). Used to auto-open files after creation. */
+  parentPath?: string;
   onComplete: () => void;
   depth: number;
 }
 
-export function NewItemInput({ type, parentHandle, onComplete, depth }: NewItemInputProps) {
+export function NewItemInput({ type, parentHandle, parentPath, onComplete, depth }: NewItemInputProps) {
   const { createFile, createDirectory } = useWorkspace();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function NewItemInput({ type, parentHandle, onComplete, depth }: NewItemI
       if (type === 'file') {
         // Auto-append .md if no extension
         const fileName = trimmedName.includes('.') ? trimmedName : `${trimmedName}.md`;
-        await createFile(parentHandle, fileName);
+        await createFile(parentHandle, fileName, parentPath);
       } else {
         await createDirectory(parentHandle, trimmedName);
       }

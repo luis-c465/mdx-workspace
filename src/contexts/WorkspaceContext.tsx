@@ -233,7 +233,7 @@ interface WorkspaceContextType {
   closeTabsToLeft: (path: string) => Promise<void>;
   closeTabsToRight: (path: string) => Promise<void>;
   refreshTree: () => Promise<void>;
-  createFile: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
+  createFile: (dirHandle: FileSystemDirectoryHandle, name: string, parentPath?: string) => Promise<void>;
   createDirectory: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
   renameEntry: (path: string, kind: 'file' | 'directory', newName: string) => Promise<string>;
@@ -524,11 +524,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [state.rootHandle]);
 
   // Create a file
-  const createFile = useCallback(async (dirHandle: FileSystemDirectoryHandle, name: string) => {
+  const createFile = useCallback(async (dirHandle: FileSystemDirectoryHandle, name: string, parentPath?: string) => {
     try {
-      await fsCreateFile(dirHandle, name);
+      const handle = await fsCreateFile(dirHandle, name);
       await refreshTree();
       toast.success('File created', { description: name });
+
+      // Auto-open the newly created file when a parent path is provided
+      if (parentPath !== undefined) {
+        // Derive the actual filename from the handle (may differ from `name` due to
+        // sanitisation or auto-appended extension inside fsCreateFile)
+        const actualName = handle.name;
+        const filePath = parentPath ? `${parentPath}/${actualName}` : actualName;
+        await openFile(filePath, handle);
+      }
     } catch (error) {
       console.error('Failed to create file:', error);
       toast.error('Failed to create file', {
@@ -536,7 +545,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       });
       throw error;
     }
-  }, [refreshTree]);
+  }, [refreshTree, openFile]);
 
   // Create a directory
   const createDirectory = useCallback(async (dirHandle: FileSystemDirectoryHandle, name: string) => {

@@ -277,6 +277,7 @@ export function MarkdownEditor({
         plugins={plugins}
         className={editorClassName}
         contentEditableClassName="prose dark:prose-invert max-w-none"
+        autoFocus={{ defaultSelection: 'rootEnd' }}
       />
     </div>
   )

@@ -127,6 +127,7 @@ export function FileTreeActions() {
             <NewItemInput
               type={creatingItem}
               parentHandle={state.rootHandle}
+              parentPath=""
               onComplete={() => setCreatingItem(null)}
               depth={0}
             />

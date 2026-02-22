@@ -327,6 +327,7 @@ export function FileTreeNode({
             <NewItemInput
               type={creatingItem}
               parentHandle={getDirHandle()}
+              parentPath={node.path}
               onComplete={() => setCreatingItem(null)}
               depth={depth + 1}
             />
