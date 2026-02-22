@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { IMAGE_EXTENSIONS, createImageObjectUrl } from '~/lib/filesystem';
 
 interface FilePreviewProps {
   path: string;
   handle: FileSystemFileHandle;
 }
-
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
 
 function getExtension(path: string): string {
   const index = path.lastIndexOf('.');
@@ -32,7 +31,7 @@ export function FilePreview({ path, handle }: FilePreviewProps) {
 
       try {
         const file = await handle.getFile();
-        objectUrl = URL.createObjectURL(file);
+        objectUrl = createImageObjectUrl(file, path);
         setPreviewUrl(objectUrl);
       } catch {
         setError('Failed to load file preview.');
@@ -46,7 +45,7 @@ export function FilePreview({ path, handle }: FilePreviewProps) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [handle, isImage, extension]);
+  }, [handle, isImage, extension, path]);
 
   if (error) {
     return (

@@ -17,6 +17,7 @@ import {
 } from '@mdxeditor/editor'
 import type { ImageUploadHandler } from '@mdxeditor/editor'
 import { ImageIcon, UploadIcon, CheckIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,12 @@ interface ImageFormProps {
   onClose: () => void
 }
 
+function isSvgSource(src: string): boolean {
+  const normalized = src.trim().toLowerCase()
+  const withoutQuery = normalized.split('#')[0]?.split('?')[0] ?? normalized
+  return withoutQuery.endsWith('.svg') || normalized.startsWith('data:image/svg+xml')
+}
+
 /**
  * Inner form component — receives initial values as props so state resets
  * naturally when the parent re-keys it (avoids setState-in-effect).
@@ -109,6 +116,11 @@ function ImageForm({
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     e.stopPropagation()
+
+    if (src && isSvgSource(src)) {
+      toast.error('SVG images are not supported')
+      return
+    }
 
     const widthNum = width ? Number(width) : undefined
     const heightNum = height ? Number(height) : undefined
@@ -163,7 +175,7 @@ function ImageForm({
             ref={fileInputRef}
             id="image-file"
             type="file"
-            accept="image/*"
+            accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp"
             onChange={handleFileChange}
           />
         </div>

@@ -8,8 +8,16 @@ import { getDirectoryHandle, saveDirectoryHandle } from './storage';
 
 // Supported file extensions
 const MARKDOWN_EXTENSIONS = ['.md'];
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+export const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 const ALLOWED_EXTENSIONS = [...MARKDOWN_EXTENSIONS, ...IMAGE_EXTENSIONS];
+
+const imageMimeTypes: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+};
 
 // Hidden files and directories to skip
 const SKIP_PATTERNS = [
@@ -90,6 +98,23 @@ function shouldIncludeFile(name: string): boolean {
  */
 function shouldSkip(name: string): boolean {
   return SKIP_PATTERNS.some(pattern => pattern(name));
+}
+
+function getFileExtension(path: string): string {
+  const dotIndex = path.lastIndexOf('.');
+  return dotIndex === -1 ? '' : path.slice(dotIndex).toLowerCase();
+}
+
+export function createImageObjectUrl(file: File, pathHint?: string): string {
+  const extension = getFileExtension(pathHint ?? file.name);
+  const inferredMimeType = imageMimeTypes[extension];
+
+  if (!file.type && inferredMimeType) {
+    const typedBlob = file.slice(0, file.size, inferredMimeType);
+    return URL.createObjectURL(typedBlob);
+  }
+
+  return URL.createObjectURL(file);
 }
 
 async function readFrontmatterIconFromHandle(
@@ -460,7 +485,7 @@ export async function resolveImagePreviewSrc(
     const normalizedPath = segments.join('/');
     const fileHandle = await getFileByPath(rootHandle, normalizedPath);
     const file = await fileHandle.getFile();
-    return URL.createObjectURL(file);
+    return createImageObjectUrl(file, normalizedPath);
   } catch (error) {
     console.error(`Failed to resolve image preview source: ${imageSource}`, error);
     throw error;

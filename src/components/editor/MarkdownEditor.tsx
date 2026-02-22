@@ -47,6 +47,10 @@ interface MarkdownEditorProps {
   onChange: (content: string) => void
 }
 
+function isSvgFile(file: File): boolean {
+  return file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')
+}
+
 export function MarkdownEditor({
   filePath,
   content,
@@ -81,6 +85,11 @@ export function MarkdownEditor({
   // Image upload handler - saves images to workspace assets/ folder
   const handleImageUpload = useCallback(async (file: File): Promise<string> => {
     try {
+      if (isSvgFile(file)) {
+        toast.error('SVG images are not supported')
+        throw new Error('SVG images are not supported')
+      }
+
       // Ensure we have a workspace root handle
       if (!state.rootHandle) {
         toast.error('No workspace is open. Cannot save image.')

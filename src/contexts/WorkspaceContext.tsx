@@ -21,11 +21,11 @@ import {
   readFileIcon,
   getParentDirectoryHandle,
   getFileByPath,
+  IMAGE_EXTENSIONS,
 } from '../lib/filesystem';
 import { getSetting, saveSetting } from '../lib/storage';
 
 const MARKDOWN_EXTENSIONS = ['.md'];
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
 
 function getFileType(path: string): OpenFile['fileType'] {
   const lowerPath = path.toLowerCase();
