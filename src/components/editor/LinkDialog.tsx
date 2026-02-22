@@ -143,7 +143,11 @@ function LinkPreview({
           }}
         />
       </PopoverAnchor>
-      <PopoverContent className="w-80 p-2" sideOffset={8}>
+      <PopoverContent
+        className="w-80 p-2"
+        sideOffset={8}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
         <div className="flex items-center gap-1">
           <Button
             type="button"
