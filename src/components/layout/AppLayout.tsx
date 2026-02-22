@@ -41,7 +41,7 @@ export function AppLayout() {
         onToggleSidebar={() => setIsSidebarVisible(prev => !prev)}
         isSidebarCollapsed={!isSidebarVisible}
       />
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ResizablePanelGroup orientation="horizontal">
           {isSidebarVisible && (
             <>
@@ -57,7 +57,7 @@ export function AppLayout() {
               <ResizableHandle withHandle />
             </>
           )}
-          <ResizablePanel defaultSize={`${isSidebarVisible ? 80 : 100}%`}>
+          <ResizablePanel className="min-h-0" defaultSize={`${isSidebarVisible ? 80 : 100}%`}>
             <EditorArea />
           </ResizablePanel>
         </ResizablePanelGroup>

@@ -61,7 +61,7 @@ export function EditorArea() {
   )
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <TabBar
         tabs={tabs}
         activeTabPath={state.activeFilePath}
@@ -71,7 +71,7 @@ export function EditorArea() {
 
       {/* Render editor or welcome screen */}
       {activeFile ? (
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {activeFile.fileType === 'markdown' ? (
             <MarkdownEditor
               filePath={activeFile.path}

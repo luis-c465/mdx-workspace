@@ -125,6 +125,97 @@
     }
 }
 
+@layer components {
+  .prose {
+    min-width: 0;
+    --tw-prose-links: var(--color-sky-500) !important;
+    --tw-prose-invert-links: var(--color-sky-400) !important;
+  }
+
+  .prose code {
+    @apply bg-muted text-muted-foreground px-1;
+  }
+
+  .prose code::before,
+  .prose code::after {
+    content: none;
+  }
+
+  .mdxeditor-root-contenteditable.prose a {
+    @apply text-sky-500 dark:text-sky-400;
+    text-decoration: none;
+  }
+
+  .prose code[data-lexical-text] {
+    @apply font-mono;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .prose code[data-lexical-text]::before,
+  .prose code[data-lexical-text]::after {
+    content: none;
+  }
+
+  .prose [data-lexical-decorator] > table {
+    table-layout: fixed;
+  }
+
+  .prose [data-lexical-decorator] > table td {
+    vertical-align: middle;
+  }
+
+  .prose [data-lexical-decorator] > table > thead,
+  .prose [data-lexical-decorator] > table > tfoot,
+  .prose [data-lexical-decorator] > table > tbody > tr {
+    border: 0;
+  }
+
+  .prose [data-lexical-decorator] > table [data-tool-cell] {
+    padding: 1px;
+    border: 0;
+    line-height: 1rem;
+    vertical-align: middle;
+  }
+
+  .prose [data-lexical-decorator] > table > thead [data-tool-cell]:first-child {
+    vertical-align: middle;
+  }
+
+  .prose pre[class*='language-'] {
+    overflow-x: auto;
+  }
+
+  .prose pre[class*='language-'],
+  .prose code[class*='language-'] {
+    @apply font-mono;
+    font-size: inherit;
+  }
+
+  .prose pre[class*='language-'] > code {
+    @apply text-sm;
+    display: block;
+  }
+
+  .prose .cm-content {
+    @apply font-mono text-xs;
+  }
+
+  .prose [data-editor-type='frontmatter'] table {
+    margin: 0;
+    font-size: inherit;
+    width: auto;
+  }
+
+  .prose [data-editor-type='frontmatter'] table thead,
+  .prose [data-editor-type='frontmatter'] table tbody,
+  .prose [data-editor-type='frontmatter'] table tfoot,
+  .prose [data-editor-type='frontmatter'] table tr {
+    border: 0;
+  }
+
+}
+
 /* MDX Editor dark mode support */
 /* Override hardcoded light dropdown backgrounds from the editor stylesheet */
 .dark .mdxeditor,
@@ -162,8 +253,8 @@
 
 /* MDX Editor structural overrides */
 .mdxeditor-root-contenteditable {
-  overflow-y: auto;
-  flex: 1;
+  overflow-y: auto !important;
+  flex: 1 1 0;
   min-height: 0;
 }
 
@@ -173,6 +264,7 @@
 
 .mdxeditor {
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }

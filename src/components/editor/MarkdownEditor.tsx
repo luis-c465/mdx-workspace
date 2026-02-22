@@ -221,7 +221,9 @@ export function MarkdownEditor({
   )
 
   // Apply dark theme class
-  const editorClassName = resolvedTheme === 'dark' ? 'dark-theme dark-editor' : ''
+  const editorClassName = resolvedTheme === 'dark'
+    ? 'dark-theme dark-editor overflow-y-auto'
+    : 'overflow-y-auto'
 
   const handleBackgroundMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target
@@ -267,7 +269,7 @@ export function MarkdownEditor({
   }, [])
 
   return (
-    <div ref={editorContainerRef} className="h-full w-full" onMouseDown={handleBackgroundMouseDown}>
+    <div ref={editorContainerRef} className="flex h-full min-h-0 w-full flex-col" onMouseDown={handleBackgroundMouseDown}>
       <MDXEditor
         key={`${filePath}-${resolvedTheme}`} // Force re-mount on file or theme switch
         markdown={content}
