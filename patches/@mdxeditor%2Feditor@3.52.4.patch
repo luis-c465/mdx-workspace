@@ -1,5 +1,5 @@
 diff --git a/dist/plugins/codemirror/CodeMirrorEditor.js b/dist/plugins/codemirror/CodeMirrorEditor.js
-index e3d8a7f7d52dd641b7733fb534774e7d2e6742b8..696e75ab16c16fcde64be111e3ac13718ffa5de1 100644
+index e3d8a7f..696e75a 100644
 --- a/dist/plugins/codemirror/CodeMirrorEditor.js
 +++ b/dist/plugins/codemirror/CodeMirrorEditor.js
 @@ -37,10 +37,10 @@ const CodeMirrorEditor = ({ language, nodeKey, code, focusEmitter }) => {
@@ -15,3 +15,76 @@ index e3d8a7f7d52dd641b7733fb534774e7d2e6742b8..696e75ab16c16fcde64be111e3ac1371
          lineNumbers(),
          keymap.of([indentWithTab]),
          EditorView.lineWrapping,
+diff --git a/dist/plugins/frontmatter/FrontmatterNode.js b/dist/plugins/frontmatter/FrontmatterNode.js
+index 6604950..c16908d 100644
+--- a/dist/plugins/frontmatter/FrontmatterNode.js
++++ b/dist/plugins/frontmatter/FrontmatterNode.js
+@@ -6,7 +6,8 @@ var __publicField = (obj, key, value) => {
+ };
+ import { DecoratorNode } from "lexical";
+ import React__default from "react";
+-import { FrontmatterEditor } from "./FrontmatterEditor.js";
++import { useCellValue } from "@mdxeditor/gurx";
++import { frontmatterEditorComponent$ } from "./index.js";
+ class FrontmatterNode extends DecoratorNode {
+   constructor(code, key) {
+     super(key);
+@@ -48,7 +49,7 @@ class FrontmatterNode extends DecoratorNode {
+   }
+   decorate(editor) {
+     return /* @__PURE__ */ React__default.createElement(
+-      FrontmatterEditor,
++      FrontmatterEditorContainer,
+       {
+         yaml: this.getYaml(),
+         onChange: (yaml) => {
+@@ -63,6 +64,10 @@ class FrontmatterNode extends DecoratorNode {
+     return false;
+   }
+ }
++function FrontmatterEditorContainer(props) {
++  const FrontmatterEditor = useCellValue(frontmatterEditorComponent$);
++  return /* @__PURE__ */ React__default.createElement(FrontmatterEditor, { ...props });
++}
+ function $createFrontmatterNode(yaml) {
+   return new FrontmatterNode(yaml);
+ }
+diff --git a/dist/plugins/frontmatter/index.js b/dist/plugins/frontmatter/index.js
+index d216bfd..edc78d7 100644
+--- a/dist/plugins/frontmatter/index.js
++++ b/dist/plugins/frontmatter/index.js
+@@ -7,7 +7,9 @@ import { frontmatter } from "micromark-extension-frontmatter";
+ import { $isFrontmatterNode, $createFrontmatterNode, FrontmatterNode } from "./FrontmatterNode.js";
+ import { LexicalFrontmatterVisitor } from "./LexicalFrontmatterVisitor.js";
+ import { MdastFrontmatterVisitor } from "./MdastFrontmatterVisitor.js";
++import { FrontmatterEditor } from "./FrontmatterEditor.js";
+ const frontmatterDialogOpen$ = Cell(false);
++const frontmatterEditorComponent$ = Cell(FrontmatterEditor);
+ const insertFrontmatter$ = Action((r) => {
+   r.sub(r.pipe(insertFrontmatter$, withLatestFrom(rootEditor$)), ([, rootEditor]) => {
+     rootEditor == null ? void 0 : rootEditor.update(() => {
+@@ -45,7 +47,7 @@ const hasFrontmatter$ = Cell(false, (r) => {
+   });
+ });
+ const frontmatterPlugin = realmPlugin({
+-  init: (realm) => {
++  init: (realm, params) => {
+     realm.pubIn({
+       [addMdastExtension$]: frontmatterFromMarkdown("yaml"),
+       [addSyntaxExtension$]: frontmatter(),
+@@ -53,6 +55,7 @@ const frontmatterPlugin = realmPlugin({
+       [addImportVisitor$]: MdastFrontmatterVisitor,
+       [addExportVisitor$]: LexicalFrontmatterVisitor,
+       [addToMarkdownExtension$]: frontmatterToMarkdown("yaml"),
++      [frontmatterEditorComponent$]: (params == null ? void 0 : params.FrontmatterEditor) ?? FrontmatterEditor,
+       [createRootEditorSubscription$]: (editor) => {
+         return editor.registerCommand(
+           KEY_DOWN_COMMAND,
+@@ -106,6 +109,7 @@ export {
+   $isFrontmatterNode,
+   FrontmatterNode,
+   frontmatterDialogOpen$,
++  frontmatterEditorComponent$,
+   frontmatterPlugin,
+   hasFrontmatter$,
+   insertFrontmatter$,

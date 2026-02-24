@@ -30,6 +30,7 @@ import { basicLight } from 'cm6-theme-basic-light'
 import { EditorToolbar } from './EditorToolbar'
 import { ImageDialog } from './ImageDialog'
 import { LinkDialog } from './LinkDialog'
+import { FrontmatterDialog } from './FrontmatterDialog'
 import { searchPlugin } from './search/searchPlugin'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
@@ -197,7 +198,9 @@ export function MarkdownEditor({
       }),
 
       // Front matter
-      frontmatterPlugin(),
+      frontmatterPlugin({
+        FrontmatterEditor: FrontmatterDialog,
+      }),
 
       // Markdown shortcuts (e.g., # for heading, > for quote)
       markdownShortcutPlugin(),
