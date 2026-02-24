@@ -151,15 +151,18 @@ export async function buildFileTree(
 
       if (entry.kind === 'directory') {
         // Recursively read subdirectories
-        const children = await buildFileTree(entry as FileSystemDirectoryHandle, path);
+        const dirEntry = entry as FileSystemDirectoryHandle
+        const children = await buildFileTree(dirEntry, path);
+        const folderIcon = await readFolderIcon(dirEntry)
         
         // Only include directories that have children or are empty but valid
         nodes.push({
           name: entry.name,
           path,
           kind: 'directory',
-          handle: entry as FileSystemDirectoryHandle,
+          handle: dirEntry,
           children,
+          icon: folderIcon,
         });
       } else if (entry.kind === 'file') {
         // Only include markdown and image files
@@ -596,6 +599,53 @@ export function readFileIcon(content: string): string | undefined {
   } catch (error) {
     console.error('Failed to extract icon from front-matter:', error);
     return undefined;
+  }
+}
+
+/**
+ * Read the custom icon for a folder from its hidden `.foldericon` file.
+ * Returns the emoji string, or undefined if no icon is set.
+ */
+export async function readFolderIcon(
+  dirHandle: FileSystemDirectoryHandle
+): Promise<string | undefined> {
+  try {
+    const fileHandle = await dirHandle.getFileHandle('.foldericon')
+    const file = await fileHandle.getFile()
+    const text = (await file.text()).trim()
+    return text || undefined
+  } catch {
+    // File doesn't exist or can't be read — no custom icon
+    return undefined
+  }
+}
+
+/**
+ * Write or remove the custom icon for a folder via a hidden `.foldericon` file.
+ * Pass an empty string or undefined to remove the icon.
+ */
+export async function updateFolderIcon(
+  dirHandle: FileSystemDirectoryHandle,
+  icon: string | undefined
+): Promise<void> {
+  try {
+    if (!icon) {
+      // Remove the icon file if it exists
+      try {
+        await dirHandle.removeEntry('.foldericon')
+      } catch {
+        // File didn't exist — nothing to do
+      }
+      return
+    }
+
+    const fileHandle = await dirHandle.getFileHandle('.foldericon', { create: true })
+    const writable = await fileHandle.createWritable()
+    await writable.write(icon)
+    await writable.close()
+  } catch (error) {
+    console.error('Failed to update folder icon:', error)
+    throw error
   }
 }
 

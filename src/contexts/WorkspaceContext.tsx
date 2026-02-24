@@ -19,6 +19,7 @@ import {
   renameFile as fsRenameFile,
   renameDirectory as fsRenameDirectory,
   readFileIcon,
+  updateFolderIcon as fsUpdateFolderIcon,
   getParentDirectoryHandle,
   getFileByPath,
   IMAGE_EXTENSIONS,
@@ -240,6 +241,7 @@ interface WorkspaceContextType {
   setActiveFile: (path: string) => void;
   updateContent: (path: string, content: string) => void;
   updateSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>;
+  updateFolderIcon: (dirHandle: FileSystemDirectoryHandle, icon: string | undefined) => Promise<void>;
   isDirty: (path: string) => boolean;
 }
 
@@ -737,6 +739,25 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Check if a file is dirty
+  /**
+   * Set or remove a custom emoji icon for a folder.
+   * The icon is stored in a hidden `.foldericon` file inside the folder.
+   */
+  const updateFolderIcon = useCallback(async (
+    dirHandle: FileSystemDirectoryHandle,
+    icon: string | undefined
+  ) => {
+    try {
+      await fsUpdateFolderIcon(dirHandle, icon)
+      await refreshTree()
+    } catch (error) {
+      console.error('Failed to update folder icon:', error)
+      toast.error('Failed to update folder icon', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+      })
+    }
+  }, [refreshTree])
+
   const isDirty = useCallback((path: string): boolean => {
     const file = state.openFiles.find(f => f.path === path);
     if (!file) return false;
@@ -764,6 +785,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setActiveFile,
     updateContent,
     updateSettings,
+    updateFolderIcon,
     isDirty,
   };
 

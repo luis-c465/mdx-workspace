@@ -45,41 +45,47 @@ function getSingleEmoji(value: string): string | null {
 }
 
 export function EmojiPicker({ node, open, onOpenChange }: EmojiPickerProps) {
-  const { state, refreshTree } = useWorkspace();
+  const { state, refreshTree, updateFolderIcon } = useWorkspace();
   const [isUpdating, setIsUpdating] = useState(false);
   const [customEmojiInput, setCustomEmojiInput] = useState('');
 
   const customEmoji = useMemo(() => getSingleEmoji(customEmojiInput), [customEmojiInput]);
 
   const handleSelectEmoji = async (emoji: string) => {
-    if (node.kind !== 'file') return;
-
     setIsUpdating(true);
 
     try {
-      const openFile = state.openFiles.find(f => f.path === node.path);
-      let content: string;
-
-      if (openFile) {
-        content = openFile.content;
+      if (node.kind === 'directory') {
+        await updateFolderIcon(
+          node.handle as FileSystemDirectoryHandle,
+          emoji || undefined
+        )
       } else {
+        const openFile = state.openFiles.find(f => f.path === node.path);
+        let content: string;
+
+        if (openFile) {
+          content = openFile.content;
+        } else {
+          const fileHandle = node.handle as FileSystemFileHandle;
+          const file = await fileHandle.getFile();
+          content = await file.text();
+        }
+
+        const updatedContent = updateFileIcon(content, emoji);
         const fileHandle = node.handle as FileSystemFileHandle;
-        const file = await fileHandle.getFile();
-        content = await file.text();
+        const writable = await fileHandle.createWritable();
+        await writable.write(updatedContent);
+        await writable.close();
+
+        await refreshTree();
       }
 
-      const updatedContent = updateFileIcon(content, emoji);
-      const fileHandle = node.handle as FileSystemFileHandle;
-      const writable = await fileHandle.createWritable();
-      await writable.write(updatedContent);
-      await writable.close();
-
-      await refreshTree();
       setCustomEmojiInput('');
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to update icon:', error);
-      toast.error('Failed to update file icon', {
+      toast.error('Failed to update icon', {
         description: error instanceof Error ? error.message : 'Please try again.',
       });
     } finally {

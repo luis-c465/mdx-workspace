@@ -149,9 +149,7 @@ export function FileTreeNode({
   };
 
   const handleChangeIcon = () => {
-    if (node.kind === 'file') {
-      setShowEmojiPicker(true);
-    }
+    setShowEmojiPicker(true);
   };
 
   const handleRename = () => {
@@ -236,7 +234,9 @@ export function FileTreeNode({
             {/* Icon */}
             <span className="shrink-0">
               {node.kind === 'directory' ? (
-                isExpanded ? (
+                node.icon ? (
+                  <span className="text-base leading-none">{node.icon}</span>
+                ) : isExpanded ? (
                   <FolderOpen className="h-4 w-4" />
                 ) : (
                   <Folder className="h-4 w-4" />
@@ -291,14 +291,12 @@ export function FileTreeNode({
               <ContextMenuSeparator />
             </>
           )}
-          {node.kind === 'file' && (
-            <>
-              <ContextMenuItem onClick={handleChangeIcon}>
-                Change Icon
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
-          )}
+          <>
+            <ContextMenuItem onClick={handleChangeIcon}>
+              Change Icon
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
           <ContextMenuItem onClick={handleRename}>
             Rename
             <ContextMenuShortcut>F2</ContextMenuShortcut>
@@ -311,13 +309,11 @@ export function FileTreeNode({
       </ContextMenu>
 
       {/* Emoji Picker */}
-      {node.kind === 'file' && (
-        <EmojiPicker
-          node={node}
-          open={showEmojiPicker}
-          onOpenChange={setShowEmojiPicker}
-        />
-      )}
+      <EmojiPicker
+        node={node}
+        open={showEmojiPicker}
+        onOpenChange={setShowEmojiPicker}
+      />
 
       {/* Children (for directories) */}
       {node.kind === 'directory' && isExpanded && (
