@@ -4,7 +4,15 @@
  * Connects to the editor's signal system for state management — receives no props.
  */
 
-import { useState, useRef, type FormEvent, type ChangeEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react'
 import {
   useCellValues,
   usePublisher,
@@ -40,6 +48,9 @@ import {
   CommandItem,
   CommandList,
 } from '~/components/ui/command'
+import { useWorkspace } from '~/contexts/WorkspaceContext'
+import { IMAGE_EXTENSIONS, resolveImagePreviewSrc } from '~/lib/filesystem'
+import type { FileNode } from '~/types/filesystem'
 
 /** Initial form values derived from the dialog state */
 interface ImageFormValues {
@@ -61,6 +72,8 @@ interface ImageFormProps {
   allowSetImageDimensions: boolean
   /** URL autocomplete suggestions */
   suggestions: string[]
+  /** Autocomplete suggestions from workspace image files */
+  localSuggestions: string[]
   /** Called with form data on submit */
   onSave: (data: {
     src?: string
@@ -72,6 +85,119 @@ interface ImageFormProps {
   }) => void
   /** Called to close the dialog */
   onClose: () => void
+}
+
+interface ImageSuggestionItemProps {
+  suggestion: string
+  isSelected: boolean
+  isActive: boolean
+  onSelect: (value: string) => void
+}
+
+function isImagePath(path: string): boolean {
+  const lowerPath = path.toLowerCase()
+  return IMAGE_EXTENSIONS.some((extension) => lowerPath.endsWith(extension))
+}
+
+function collectImageSuggestions(nodes: FileNode[]): string[] {
+  const suggestions = new Set<string>()
+
+  function visit(currentNodes: FileNode[]) {
+    for (const node of currentNodes) {
+      if (node.kind === 'directory' && node.children) {
+        visit(node.children)
+        continue
+      }
+
+      if (node.kind === 'file' && isImagePath(node.path)) {
+        suggestions.add(`./${node.path}`)
+      }
+    }
+  }
+
+  visit(nodes)
+
+  return Array.from(suggestions).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  )
+}
+
+function ImageSuggestionItem({ suggestion, isSelected, isActive, onSelect }: ImageSuggestionItemProps) {
+  const { state } = useWorkspace()
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    let objectUrl: string | null = null
+
+    async function loadPreview() {
+      if (!state.rootHandle) {
+        setPreviewSrc(null)
+        return
+      }
+
+      try {
+        const resolvedSrc = await resolveImagePreviewSrc(state.rootHandle, suggestion)
+
+        if (!isMounted) {
+          if (resolvedSrc.startsWith('blob:')) {
+            URL.revokeObjectURL(resolvedSrc)
+          }
+          return
+        }
+
+        if (resolvedSrc.startsWith('blob:')) {
+          objectUrl = resolvedSrc
+        }
+
+        setPreviewSrc(resolvedSrc)
+      } catch (error) {
+        console.error('Failed to load image suggestion preview:', error)
+        if (isMounted) {
+          setPreviewSrc(null)
+        }
+      }
+    }
+
+    loadPreview()
+
+    return () => {
+      isMounted = false
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+    }
+  }, [state.rootHandle, suggestion])
+
+  return (
+    <CommandItem
+      value={suggestion}
+      className={isActive ? 'bg-accent text-accent-foreground' : undefined}
+      onMouseDown={(event) => {
+        event.preventDefault()
+      }}
+      onSelect={() => onSelect(suggestion)}
+    >
+      <div className="flex w-full items-center gap-2">
+        <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border bg-muted">
+          {previewSrc ? (
+            <img
+              src={previewSrc}
+              alt=""
+              className="size-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <ImageIcon className="size-4 text-muted-foreground" />
+          )}
+        </div>
+        <span className="min-w-0 flex-1 truncate">{suggestion}</span>
+        <CheckIcon
+          className={`size-4 shrink-0 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+        />
+      </div>
+    </CommandItem>
+  )
 }
 
 function isSvgSource(src: string): boolean {
@@ -90,6 +216,7 @@ function ImageForm({
   imageUploadHandler,
   allowSetImageDimensions,
   suggestions,
+  localSuggestions,
   onSave,
   onClose,
 }: ImageFormProps) {
@@ -101,17 +228,37 @@ function ImageForm({
   const [file, setFile] = useState<FileList | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Autocomplete popover state
-  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState(false)
+  const [isSrcFocused, setIsSrcFocused] = useState(false)
+  const [keyboardSuggestionIndex, setKeyboardSuggestionIndex] = useState<number | null>(null)
 
-  const hasSuggestions = suggestions.length > 0
+  const autocompleteSuggestions = localSuggestions.length > 0
+    ? localSuggestions
+    : suggestions
+
+  const hasSuggestions = autocompleteSuggestions.length > 0
 
   /** Filter autocomplete suggestions based on current src input */
-  const filteredSuggestions = hasSuggestions
-    ? suggestions.filter((s) =>
-        s.toLowerCase().includes(src.toLowerCase()),
-      )
-    : []
+  const filteredSuggestions = useMemo(() => {
+    if (!hasSuggestions) {
+      return []
+    }
+
+    return autocompleteSuggestions.filter((suggestion) =>
+      suggestion.toLowerCase().includes(src.toLowerCase()),
+    )
+  }, [autocompleteSuggestions, hasSuggestions, src])
+
+  const isAutocompleteOpen = isSrcFocused && filteredSuggestions.length > 0
+
+  const selectedSuggestionIndex = filteredSuggestions.findIndex(
+    (suggestion) => suggestion === src,
+  )
+
+  const fallbackSuggestionIndex = selectedSuggestionIndex >= 0 ? selectedSuggestionIndex : 0
+
+  const activeSuggestionIndex = keyboardSuggestionIndex != null
+    ? Math.min(keyboardSuggestionIndex, Math.max(filteredSuggestions.length - 1, 0))
+    : fallbackSuggestionIndex
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -142,19 +289,58 @@ function ImageForm({
 
   function handleSrcChange(value: string) {
     setSrc(value)
-    if (hasSuggestions && value.length > 0) {
-      const matches = suggestions.filter((s) =>
-        s.toLowerCase().includes(value.toLowerCase()),
-      )
-      setIsAutocompleteOpen(matches.length > 0)
-    } else {
-      setIsAutocompleteOpen(false)
-    }
+    setKeyboardSuggestionIndex(null)
   }
 
   function handleSuggestionSelect(value: string) {
     setSrc(value)
-    setIsAutocompleteOpen(false)
+    setKeyboardSuggestionIndex(null)
+  }
+
+  function handleSrcKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!isAutocompleteOpen || filteredSuggestions.length === 0) {
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setKeyboardSuggestionIndex((currentIndex) => {
+        const baseIndex = currentIndex ?? fallbackSuggestionIndex
+        return baseIndex < filteredSuggestions.length - 1
+          ? baseIndex + 1
+          : 0
+      })
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setKeyboardSuggestionIndex((currentIndex) => {
+        const baseIndex = currentIndex ?? fallbackSuggestionIndex
+        return baseIndex > 0
+          ? baseIndex - 1
+          : filteredSuggestions.length - 1
+      })
+      return
+    }
+
+    if (event.key === 'Tab' && activeSuggestionIndex >= 0) {
+      event.preventDefault()
+      const suggestion = filteredSuggestions[activeSuggestionIndex]
+      if (suggestion) {
+        handleSuggestionSelect(suggestion)
+      }
+      return
+    }
+
+    if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+      const suggestion = filteredSuggestions[activeSuggestionIndex]
+
+      if (suggestion && suggestion !== src) {
+        event.preventDefault()
+        handleSuggestionSelect(suggestion)
+      }
+    }
   }
 
   return (
@@ -188,26 +374,24 @@ function ImageForm({
           className="text-sm font-medium leading-none"
         >
           {imageUploadHandler !== null
-            ? 'Or add from URL'
-            : 'Image URL'}
+            ? 'Or enter URL or relative path'
+            : 'Image URL or relative path'}
         </label>
         {hasSuggestions ? (
-          <Popover
-            open={isAutocompleteOpen}
-            onOpenChange={setIsAutocompleteOpen}
-          >
+          <Popover open={isAutocompleteOpen}>
             <PopoverAnchor asChild>
               <Input
                 id="image-src"
-                type="url"
-                placeholder="https://example.com/image.png"
+                type="text"
+                placeholder="https://example.com/image.png or ./assets/image.png"
                 value={src}
                 onChange={(e) => handleSrcChange(e.target.value)}
                 onFocus={() => {
-                  if (filteredSuggestions.length > 0) {
-                    setIsAutocompleteOpen(true)
-                  }
+                  setIsSrcFocused(true)
+                  setKeyboardSuggestionIndex(null)
                 }}
+                onBlur={() => setIsSrcFocused(false)}
+                onKeyDown={handleSrcKeyDown}
                 autoComplete="off"
               />
             </PopoverAnchor>
@@ -220,17 +404,14 @@ function ImageForm({
                 <CommandList>
                   <CommandEmpty>No matching URLs</CommandEmpty>
                   <CommandGroup>
-                    {filteredSuggestions.map((suggestion) => (
-                      <CommandItem
+                    {filteredSuggestions.map((suggestion, index) => (
+                      <ImageSuggestionItem
                         key={suggestion}
-                        value={suggestion}
+                        suggestion={suggestion}
+                        isSelected={src === suggestion}
+                        isActive={index === activeSuggestionIndex}
                         onSelect={handleSuggestionSelect}
-                      >
-                        <CheckIcon
-                          className={`size-4 ${src === suggestion ? 'opacity-100' : 'opacity-0'}`}
-                        />
-                        <span className="truncate">{suggestion}</span>
-                      </CommandItem>
+                      />
                     ))}
                   </CommandGroup>
                 </CommandList>
@@ -240,8 +421,8 @@ function ImageForm({
         ) : (
           <Input
             id="image-src"
-            type="url"
-            placeholder="https://example.com/image.png"
+            type="text"
+            placeholder="https://example.com/image.png or ./assets/image.png"
             value={src}
             onChange={(e) => setSrc(e.target.value)}
           />
@@ -348,6 +529,8 @@ function ImageForm({
  * ```
  */
 export function ImageDialog() {
+  const { state: workspaceState } = useWorkspace()
+
   const [state, imageUploadHandler, allowSetImageDimensions, suggestions] =
     useCellValues(
       imageDialogState$,
@@ -355,6 +538,11 @@ export function ImageDialog() {
       allowSetImageDimensions$,
       imageAutocompleteSuggestions$,
     )
+
+  const localSuggestions = useMemo(
+    () => collectImageSuggestions(workspaceState.fileTree),
+    [workspaceState.fileTree],
+  )
 
   const saveImage = usePublisher(saveImage$)
   const closeImageDialog = usePublisher(closeImageDialog$)
@@ -425,6 +613,7 @@ export function ImageDialog() {
             imageUploadHandler={imageUploadHandler}
             allowSetImageDimensions={allowSetImageDimensions}
             suggestions={suggestions}
+            localSuggestions={localSuggestions}
             onSave={handleSave}
             onClose={handleClose}
           />
