@@ -18,6 +18,7 @@ import {
   deleteEntry as fsDeleteEntry,
   renameFile as fsRenameFile,
   renameDirectory as fsRenameDirectory,
+  moveEntry as fsMoveEntry,
   readFileIcon,
   updateFolderIcon as fsUpdateFolderIcon,
   getParentDirectoryHandle,
@@ -238,6 +239,7 @@ interface WorkspaceContextType {
   createDirectory: (dirHandle: FileSystemDirectoryHandle, name: string) => Promise<void>;
   deleteEntry: (path: string) => Promise<void>;
   renameEntry: (path: string, kind: 'file' | 'directory', newName: string) => Promise<string>;
+  moveEntry: (sourcePath: string, targetDirPath: string) => Promise<string>;
   setActiveFile: (path: string) => void;
   updateContent: (path: string, content: string) => void;
   updateSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>;
@@ -714,6 +716,95 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.rootHandle, state.openFiles, state.activeFilePath, refreshTree]);
 
+  const moveEntry = useCallback(async (
+    sourcePath: string,
+    targetDirPath: string
+  ): Promise<string> => {
+    if (!state.rootHandle) {
+      throw new Error('No workspace opened');
+    }
+
+    const trimmedSourcePath = sourcePath.trim();
+    const trimmedTargetDirPath = targetDirPath.trim();
+
+    if (!trimmedSourcePath) {
+      throw new Error('Invalid source path');
+    }
+
+    const sourceParentSlashIndex = trimmedSourcePath.lastIndexOf('/');
+    const sourceParentPath = sourceParentSlashIndex === -1
+      ? ''
+      : trimmedSourcePath.substring(0, sourceParentSlashIndex);
+
+    if (sourceParentPath === trimmedTargetDirPath) {
+      return trimmedSourcePath;
+    }
+
+    const sourceName = sourceParentSlashIndex === -1
+      ? trimmedSourcePath
+      : trimmedSourcePath.substring(sourceParentSlashIndex + 1);
+    const movedBasePath = trimmedTargetDirPath ? `${trimmedTargetDirPath}/${sourceName}` : sourceName;
+
+    try {
+      await fsMoveEntry(state.rootHandle, trimmedSourcePath, trimmedTargetDirPath);
+
+      const filesNeedingPathUpdate = state.openFiles.filter(
+        (file) => file.path === trimmedSourcePath || file.path.startsWith(`${trimmedSourcePath}/`)
+      );
+
+      const pathToHandle = new Map<string, FileSystemFileHandle>();
+      await Promise.all(
+        filesNeedingPathUpdate.map(async (file) => {
+          const movedFilePath = `${movedBasePath}${file.path.slice(trimmedSourcePath.length)}`;
+          const newFileHandle = await getFileByPath(state.rootHandle as FileSystemDirectoryHandle, movedFilePath);
+          pathToHandle.set(movedFilePath, newFileHandle);
+        })
+      );
+
+      const nextOpenFiles = state.openFiles.map((file) => {
+        if (!(file.path === trimmedSourcePath || file.path.startsWith(`${trimmedSourcePath}/`))) {
+          return file;
+        }
+
+        const movedFilePath = `${movedBasePath}${file.path.slice(trimmedSourcePath.length)}`;
+        const newFileHandle = pathToHandle.get(movedFilePath);
+        return {
+          ...file,
+          path: movedFilePath,
+          ...(newFileHandle ? { handle: newFileHandle } : {}),
+        };
+      });
+
+      const nextActivePath = state.activeFilePath && (
+        state.activeFilePath === trimmedSourcePath ||
+        state.activeFilePath.startsWith(`${trimmedSourcePath}/`)
+      )
+        ? `${movedBasePath}${state.activeFilePath.slice(trimmedSourcePath.length)}`
+        : state.activeFilePath;
+
+      dispatch({
+        type: 'SET_OPEN_FILES_AND_ACTIVE',
+        payload: {
+          openFiles: nextOpenFiles,
+          activeFilePath: nextActivePath,
+        },
+      });
+
+      await refreshTree();
+      toast.success('Moved successfully', {
+        description: `${sourceName} to ${trimmedTargetDirPath || 'workspace root'}`,
+      });
+
+      return movedBasePath;
+    } catch (error) {
+      console.error('Failed to move entry:', error);
+      toast.error('Failed to move', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [state.rootHandle, state.openFiles, state.activeFilePath, refreshTree]);
+
   // Set active file
   const setActiveFile = useCallback((path: string) => {
     dispatch({ type: 'SET_ACTIVE_FILE', payload: path });
@@ -782,6 +873,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     createDirectory,
     deleteEntry,
     renameEntry,
+    moveEntry,
     setActiveFile,
     updateContent,
     updateSettings,

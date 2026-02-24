@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Circle } from 'lucide-react';
 import { cn } from '~/lib/utils';
 import { useWorkspace } from '~/contexts/WorkspaceContext';
@@ -54,6 +55,31 @@ export function FileTreeNode({
   const isRenaming = renamingPath === node.path;
   const dirty = node.kind === 'file' && isDirty(node.path);
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragNodeRef,
+    isDragging,
+  } = useDraggable({
+    id: node.path,
+    data: { node },
+    disabled: isRenaming,
+  });
+
+  const {
+    setNodeRef: setDropNodeRef,
+    isOver,
+  } = useDroppable({
+    id: node.path,
+    data: { node },
+    disabled: node.kind !== 'directory',
+  });
+
+  const setNodeRefs = (element: HTMLDivElement | null) => {
+    setDragNodeRef(element);
+    setDropNodeRef(element);
+  };
+
   // Auto-expand directories when searching
   useEffect(() => {
     if (searchQuery && node.kind === 'directory' && node.children) {
@@ -88,6 +114,20 @@ export function FileTreeNode({
       input.select();
     });
   }, [isRenaming, node.name, node.kind]);
+
+  useEffect(() => {
+    if (node.kind !== 'directory' || !isOver || isExpanded) {
+      return;
+    }
+
+    const expandTimeout = window.setTimeout(() => {
+      setIsExpanded(true);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(expandTimeout);
+    };
+  }, [node.kind, isOver, isExpanded]);
 
   const validateName = (value: string): string | null => {
     if (!value.trim()) {
@@ -205,6 +245,9 @@ export function FileTreeNode({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
+            ref={setNodeRefs}
+            {...attributes}
+            {...listeners}
             onClick={handleClick}
             onMouseDown={(e) => {
               if (e.button === 2) {
@@ -212,11 +255,13 @@ export function FileTreeNode({
               }
             }}
             className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-sm cursor-pointer text-sm transition-colors',
+              'flex items-center gap-1.5 px-2 py-1 rounded-sm cursor-grab text-sm transition-colors active:cursor-grabbing',
               'hover:bg-accent/50',
               isActive && 'bg-accent text-accent-foreground font-medium',
               !isActive && 'text-foreground',
-              isSelected && !isActive && 'bg-accent/40'
+              isSelected && !isActive && 'bg-accent/40',
+              isDragging && 'opacity-40',
+              node.kind === 'directory' && isOver && 'ring-1 ring-primary/70 bg-accent/60'
             )}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
           >

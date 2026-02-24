@@ -425,6 +425,60 @@ export async function renameDirectory(
 }
 
 /**
+ * Move a file or directory entry to another directory.
+ * This uses copy + delete because the File System Access API has no native move API.
+ */
+export async function moveEntry(
+  rootHandle: FileSystemDirectoryHandle,
+  sourcePath: string,
+  targetDirPath: string
+): Promise<void> {
+  try {
+    const normalizedSourcePath = sourcePath.trim();
+    const normalizedTargetPath = targetDirPath.trim();
+
+    if (!normalizedSourcePath) {
+      throw new Error('Invalid source path');
+    }
+
+    if (normalizedSourcePath === normalizedTargetPath || normalizedTargetPath.startsWith(`${normalizedSourcePath}/`)) {
+      throw new Error('Cannot move a directory into itself or one of its descendants');
+    }
+
+    const sourceParentHandle = await getParentDirectoryHandle(rootHandle, normalizedSourcePath);
+    const targetDirHandle = await getDirectoryByPath(rootHandle, normalizedTargetPath);
+
+    const lastSlashIndex = normalizedSourcePath.lastIndexOf('/');
+    const sourceName = lastSlashIndex === -1 ? normalizedSourcePath : normalizedSourcePath.substring(lastSlashIndex + 1);
+
+    if (!sourceName) {
+      throw new Error('Invalid source entry name');
+    }
+
+    if (await entryExists(targetDirHandle, sourceName)) {
+      throw new Error(`An item named "${sourceName}" already exists`);
+    }
+
+    try {
+      const sourceFileHandle = await sourceParentHandle.getFileHandle(sourceName);
+      await copyFileHandle(sourceFileHandle, targetDirHandle, sourceName);
+      await deleteEntry(sourceParentHandle, sourceName);
+      return;
+    } catch {
+      // Not a file, try as directory
+    }
+
+    const sourceDirectoryHandle = await sourceParentHandle.getDirectoryHandle(sourceName);
+    const targetDirectoryHandle = await targetDirHandle.getDirectoryHandle(sourceName, { create: true });
+    await copyDirectoryContents(sourceDirectoryHandle, targetDirectoryHandle);
+    await deleteEntry(sourceParentHandle, sourceName);
+  } catch (error) {
+    console.error(`Failed to move entry from ${sourcePath} to ${targetDirPath}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Save an image file to the assets/ directory
  * Creates the directory if it doesn't exist
  * Returns the relative path to the image

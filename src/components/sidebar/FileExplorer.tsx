@@ -3,21 +3,65 @@
  * Main file tree explorer with search, actions, and workspace management
  */
 
+import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useEffect, useState } from 'react';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Separator } from '~/components/ui/separator';
+import { useWorkspace } from '~/contexts/WorkspaceContext';
+import { cn } from '~/lib/utils';
+import type { FileNode } from '~/types/filesystem';
+import { DragGhostItem } from './DragGhostItem';
 import { FileTreeActions } from './FileTreeActions';
 import { FileSearch } from './FileSearch';
 import { FileTreeNode } from './FileTreeNode';
-import { useWorkspace } from '~/contexts/WorkspaceContext';
-import type { FileNode } from '~/types/filesystem';
+
+const ROOT_DROP_ID = '__workspace_root__';
+
+function findNodeByPath(nodes: FileNode[], path: string): FileNode | null {
+  for (const node of nodes) {
+    if (node.path === path) {
+      return node;
+    }
+
+    if (node.kind === 'directory' && node.children) {
+      const match = findNodeByPath(node.children, path);
+      if (match) {
+        return match;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getParentPath(path: string): string {
+  const lastSlashIndex = path.lastIndexOf('/');
+  if (lastSlashIndex === -1) {
+    return '';
+  }
+  return path.slice(0, lastSlashIndex);
+}
 
 export function FileExplorer() {
-  const { state, openWorkspace } = useWorkspace();
+  const { state, openWorkspace, moveEntry } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(state.activeFilePath);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [draggingNode, setDraggingNode] = useState<FileNode | null>(null);
+
+  const { setNodeRef: setRootDropRef, isOver: isRootDropOver } = useDroppable({
+    id: ROOT_DROP_ID,
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    })
+  );
 
   const { rootHandle, fileTree, isLoading } = state;
 
@@ -77,6 +121,72 @@ export function FileExplorer() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedPath, renamingPath]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const node = event.active.data.current?.node as FileNode | undefined;
+
+    if (node) {
+      setDraggingNode(node);
+      return;
+    }
+
+    const activeId = String(event.active.id);
+    const fallbackNode = findNodeByPath(fileTree, activeId);
+    setDraggingNode(fallbackNode);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const sourceNode = draggingNode;
+    const targetId = event.over ? String(event.over.id) : null;
+    setDraggingNode(null);
+
+    if (!sourceNode || !targetId) {
+      return;
+    }
+
+    const sourcePath = sourceNode.path;
+    const sourceParentPath = getParentPath(sourcePath);
+
+    if (targetId === ROOT_DROP_ID) {
+      if (!sourceParentPath) {
+        return;
+      }
+
+      try {
+        const movedPath = await moveEntry(sourcePath, '');
+        setSelectedPath(movedPath);
+      } catch {
+        // Error toasts are handled by the context
+      }
+
+      return;
+    }
+
+    const targetNode = findNodeByPath(fileTree, targetId);
+    if (!targetNode || targetNode.kind !== 'directory') {
+      return;
+    }
+
+    const targetPath = targetNode.path;
+    if (
+      sourcePath === targetPath ||
+      sourceParentPath === targetPath ||
+      targetPath.startsWith(`${sourcePath}/`)
+    ) {
+      return;
+    }
+
+    try {
+      const movedPath = await moveEntry(sourcePath, targetPath);
+      setSelectedPath(movedPath);
+    } catch {
+      // Error toasts are handled by the context
+    }
+  };
+
+  const handleDragCancel = () => {
+    setDraggingNode(null);
+  };
+
   // If no workspace is open, show the open workspace button
   if (!rootHandle) {
     return (
@@ -124,35 +234,62 @@ export function FileExplorer() {
       <Separator />
 
       {/* File tree */}
-      <ScrollArea className="flex-1">
-        <div className="p-2">
-          {isLoading ? (
-            <div className="text-sm text-muted-foreground text-center py-4">
-              Loading...
-            </div>
-          ) : filteredTree.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-4">
-              {searchQuery ? 'No files match your search' : 'No files in workspace'}
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              {filteredTree.map((node) => (
-                <FileTreeNode 
-                  key={node.path} 
-                  node={node} 
-                  depth={0}
-                  searchQuery={searchQuery}
-                  selectedPath={selectedPath}
-                  renamingPath={renamingPath}
-                  onSelectNode={setSelectedPath}
-                  onStartRename={setRenamingPath}
-                  onFinishRename={() => setRenamingPath(null)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <ScrollArea className="flex-1">
+          <div className="p-2">
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                Loading...
+              </div>
+            ) : filteredTree.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                {searchQuery ? 'No files match your search' : 'No files in workspace'}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {filteredTree.map((node) => (
+                  <FileTreeNode
+                    key={node.path}
+                    node={node}
+                    depth={0}
+                    searchQuery={searchQuery}
+                    selectedPath={selectedPath}
+                    renamingPath={renamingPath}
+                    onSelectNode={setSelectedPath}
+                    onStartRename={setRenamingPath}
+                    onFinishRename={() => setRenamingPath(null)}
+                  />
+                ))}
+
+                <div
+                  ref={setRootDropRef}
+                  className={cn(
+                    'mt-2 h-14 rounded-sm border border-dashed border-transparent px-2 text-xs text-muted-foreground transition-colors',
+                    draggingNode && 'border-border/70 bg-muted/10',
+                    isRootDropOver && 'border-primary/70 bg-primary/10 text-foreground'
+                  )}
+                >
+                  {draggingNode && (
+                    <div className="flex h-full items-center justify-center">
+                      Drop here to move to workspace root
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        <DragOverlay dropAnimation={null}>
+          {draggingNode ? <DragGhostItem node={draggingNode} /> : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
