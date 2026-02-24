@@ -72,7 +72,7 @@ export function FileTreeNode({
   } = useDroppable({
     id: node.path,
     data: { node },
-    disabled: node.kind !== 'directory',
+    disabled: node.kind !== 'directory' || isDragging,
   });
 
   const setNodeRefs = (element: HTMLDivElement | null) => {
