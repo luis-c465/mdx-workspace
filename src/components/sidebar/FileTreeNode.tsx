@@ -100,7 +100,6 @@ export function FileTreeNode({
       if (!input) {
         return;
       }
-
       input.focus();
 
       if (node.kind === 'file') {
@@ -232,6 +231,17 @@ export function FileTreeNode({
     }
   };
 
+  const handleRenameBlur = () => {
+    window.setTimeout(() => {
+      const input = renameInputRef.current;
+      const isInputFocused = !!input && document.activeElement === input;
+
+      if (!isInputFocused) {
+        onFinishRename();
+      }
+    }, 0);
+  };
+
   // Get directory handle for creating new items
   const getDirHandle = (): FileSystemDirectoryHandle | null => {
     if (node.kind === 'directory') {
@@ -305,7 +315,7 @@ export function FileTreeNode({
                     setRenameError(null);
                   }}
                   onKeyDown={handleRenameKeyDown}
-                  onBlur={onFinishRename}
+                  onBlur={handleRenameBlur}
                   className={cn('h-6 text-sm px-1', renameError && 'border-destructive')}
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -324,7 +334,7 @@ export function FileTreeNode({
           </div>
         </ContextMenuTrigger>
 
-        <ContextMenuContent>
+        <ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
           {node.kind === 'directory' && (
             <>
               <ContextMenuItem onClick={handleNewFile}>
