@@ -18,6 +18,7 @@ import { NewItemInput } from './NewItemInput';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const shortDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function getDailyNotePathInfo(date: Date) {
   const normalizedDate = new Date(date);
@@ -26,7 +27,8 @@ function getDailyNotePathInfo(date: Date) {
   const fileDay = String(normalizedDate.getDate()).padStart(2, '0');
   const fileMonth = String(normalizedDate.getMonth() + 1).padStart(2, '0');
   const fileYear = normalizedDate.getFullYear();
-  const fileName = `${fileDay}-${fileMonth}-${fileYear}.md`;
+  const dayName = shortDayNames[normalizedDate.getDay()];
+  const fileName = `${fileDay}-${fileMonth}-${fileYear}-${dayName}.md`;
 
   const dayOfWeek = normalizedDate.getDay() || 7;
   const monday = new Date(normalizedDate);
