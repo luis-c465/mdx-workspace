@@ -32,6 +32,7 @@ import { ImageDialog } from './ImageDialog'
 import { LinkDialog } from './LinkDialog'
 import { FrontmatterDialog } from './FrontmatterDialog'
 import { searchPlugin } from './search/searchPlugin'
+import { outlinePlugin } from './outlinePlugin'
 import { useThemeContext } from '~/contexts/ThemeContext'
 import { useWorkspace } from '~/contexts/WorkspaceContext'
 import { saveImage, resolveImagePreviewSrc } from '~/lib/filesystem'
@@ -220,6 +221,9 @@ export function MarkdownEditor({
 
       // Search & Replace plugin (Step 10)
       searchPlugin(),
+
+      // Sidebar outline sync
+      outlinePlugin(),
     ],
     [savedContent, handleImageUpload, handleImagePreview, resolvedTheme] // Re-create plugins when handlers, savedContent, or theme changes
   )

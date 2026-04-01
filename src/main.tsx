@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { registerSW } from 'virtual:pwa-register'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
+import { OutlineProvider } from './contexts/OutlineContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 
@@ -31,7 +32,9 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <TooltipProvider>
           <WorkspaceProvider>
-            <App />
+            <OutlineProvider>
+              <App />
+            </OutlineProvider>
           </WorkspaceProvider>
         </TooltipProvider>
       </ThemeProvider>
